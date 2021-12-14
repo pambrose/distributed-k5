@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+import public "google/protobuf/empty.proto";
+import public "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.github.pambrose";
+
+service CoordinateService {
+  rpc writeMousePos (stream MousePosition) returns (google.protobuf.Empty) {}
+  rpc readMousePos (google.protobuf.Empty) returns (stream MousePosition) {}
+}
+
+message MousePosition {
+  double x = 1;
+  double y = 2;
+}
