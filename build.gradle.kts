@@ -78,6 +78,7 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlinx.coroutines.InternalCoroutinesApi"
+    kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.time.ExperimentalTime"
 }
 
 compose.desktop {

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+import public "google/protobuf/empty.proto";
+import public "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.github.pambrose";
+
+service CanvasService {
+  rpc ping (PingPB) returns (google.protobuf.Empty) {}
+  rpc register (ClientInfoPB) returns (stream ClientInfoPB) {}
+  rpc writeMousePos (stream PositionPB) returns (google.protobuf.Empty) {}
+  rpc readMousePos (google.protobuf.Empty) returns (stream PositionPB) {}
+}
+
+message PingPB {
+  string id = 1;
+}
+
+message ClientInfoPB {
+  string id = 1;
+  string even = 2;
+  string odd = 3;
+}
+
+message PositionPB {
+  string id = 1;
+  double x = 2;
+  double y = 3;
+}
