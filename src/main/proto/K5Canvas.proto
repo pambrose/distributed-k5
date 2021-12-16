@@ -18,9 +18,10 @@ message PingPB {
 }
 
 message ClientInfoPB {
-  string id = 1;
-  string even = 2;
-  string odd = 3;
+  bool active = 1;
+  string id = 2;
+  string even = 3;
+  string odd = 4;
 }
 
 message PositionPB {

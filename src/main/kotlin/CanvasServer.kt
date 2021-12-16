@@ -1,3 +1,4 @@
+import BaseCanvas.clientInfo
 import com.github.pambrose.CanvasServiceGrpcKt
 import com.github.pambrose.ClientInfoPB
 import com.github.pambrose.PingPB
@@ -60,6 +61,20 @@ class CanvasServer(val port: Int) {
                         if (age >= 2000) {
                             println("Client disconnected: ${it.clientInfo.id}")
                             clientContextMap.remove(it.clientInfo.id)
+                            val removal = clientInfo {
+                                active = false
+                                id = it.clientInfo.id
+                                even = it.clientInfo.even
+                                odd = it.clientInfo.odd
+                            }
+                            runBlocking {
+                                clientContextMap.forEach { id, clientContext ->
+                                    launch {
+                                        clientContext.channel.send(removal)
+                                    }
+                                }
+
+                            }
                         }
                     }
                 }

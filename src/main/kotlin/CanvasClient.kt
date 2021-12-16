@@ -38,6 +38,7 @@ class CanvasClient internal constructor(private val channel: ManagedChannel) : C
             // TODO Copilot
             val clientInfo =
                 clientInfo {
+                    this.active = true
                     this.id = id
                     this.even = even.value.toString()
                     this.odd = odd.value.toString()

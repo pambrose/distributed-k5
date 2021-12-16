@@ -26,8 +26,11 @@ fun main() =
                     runBlocking {
                         client.register(id, Color.Red, Color.Green)
                             .collect {
-                                contextMap[it.id] =
-                                    ClientContext(it.id, Color(it.even.toULong()), Color(it.odd.toULong()))
+                                if (it.active)
+                                    contextMap[it.id] =
+                                        ClientContext(it.id, Color(it.even.toULong()), Color(it.odd.toULong()))
+                                else
+                                    contextMap.remove(it.id)
                             }
                     }
                 }
