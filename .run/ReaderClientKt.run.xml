@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false" name="ReaderCanvasKt" type="JetRunConfigurationType" singleton="false"
+                   nameIsGenerated="true">
+        <option name="MAIN_CLASS_NAME" value="ReaderCanvasKt"/>
+        <module name="distributed-k5.main"/>
+        <shortenClasspath name="NONE"/>
+        <method v="2">
+            <option name="Make" enabled="true"/>
+        </method>
+    </configuration>
+</component>

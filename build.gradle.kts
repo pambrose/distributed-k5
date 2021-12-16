@@ -13,7 +13,7 @@ plugins {
     kotlin("jvm") version "1.5.21"
     id("com.google.protobuf") version "0.8.18"
     id("com.github.ben-manes.versions") version "0.39.0"
-    id("org.jetbrains.compose") version "1.0.0-alpha3"
+    id("org.jetbrains.compose") version "1.0.0-alpha3" // 1.1.0-alpha1-dev527
 }
 
 group = "com.github.pambrose"
@@ -29,9 +29,13 @@ repositories {
 
 }
 
-val grpcVersion: String by project
-val gengrpcVersion: String by project
 val coroutinesVersion: String by project
+val gengrpcVersion: String by project
+val grpcVersion: String by project
+val logbackVersion: String by project
+val loggingVersion: String by project
+val protocVersion: String by project
+val slf4jVersion: String by project
 
 dependencies {
     implementation(kotlin("stdlib"))
@@ -55,6 +59,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$coroutinesVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:$coroutinesVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-debug:$coroutinesVersion")
+
+    implementation("io.github.microutils:kotlin-logging:$loggingVersion")
+    implementation("ch.qos.logback:logback-classic:$logbackVersion")
+    implementation("org.slf4j:jul-to-slf4j:$slf4jVersion")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
@@ -92,10 +100,10 @@ sourceSets {
 }
 
 protobuf {
-    protoc { artifact = "com.google.protobuf:protoc:3.19.1" }
+    protoc { artifact = "com.google.protobuf:protoc:$protocVersion" }
     plugins {
-        id("grpc") { artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}" }
-        id("grpckt") { artifact = "io.grpc:protoc-gen-grpc-kotlin:1.2.0:jdk7@jar" }
+        id("grpc") { artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion" }
+        id("grpckt") { artifact = "io.grpc:protoc-gen-grpc-kotlin:$gengrpcVersion:jdk7@jar" }
     }
     generateProtoTasks {
         all().forEach {
