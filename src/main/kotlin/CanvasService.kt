@@ -1,37 +1,28 @@
 import BaseCanvas.ClientContext
 import BaseCanvas.clientInfo
 import BaseCanvas.mousePosition
-import BaseCanvas.ping
 import androidx.compose.ui.graphics.Color
 import com.github.pambrose.CanvasServiceGrpcKt
 import com.google.protobuf.Empty
+import io.grpc.ClientInterceptors
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import math.Vector2D
 import java.io.Closeable
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeUnit
-import kotlin.time.Duration.Companion.seconds
 
-class CanvasClient internal constructor(private val channel: ManagedChannel) : Closeable {
-    private val stub = CanvasServiceGrpcKt.CanvasServiceCoroutineStub(channel)
+class CanvasService internal constructor(canvas: MultiCanvas, val channel: ManagedChannel) : Closeable {
+    val interceptors = listOf(CanvasClientInterceptor(canvas))
 
-    constructor(host: String, port: Int = 50051) :
-            this(ManagedChannelBuilder.forAddress(host, port).usePlaintext().build())
+    private val stub =
+        CanvasServiceGrpcKt.CanvasServiceCoroutineStub(ClientInterceptors.intercept(channel, interceptors))
 
-    suspend fun ping(id: String) =
-        coroutineScope {
-            val pingMsg = ping { this.id = id }
-            while (true) {
-                stub.ping(pingMsg)
-                delay(1.seconds)
-            }
-        }
-
+    constructor(canvas: MultiCanvas, host: String, port: Int = 50051) :
+            this(canvas, ManagedChannelBuilder.forAddress(host, port).usePlaintext().build())
 
     suspend fun register(id: String, even: Color, odd: Color) =
         coroutineScope {

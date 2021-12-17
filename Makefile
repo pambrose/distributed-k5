@@ -2,7 +2,7 @@ default: versioncheck
 
 all: stubs java-build bin
 
-stubs: java-stubs python-stubs
+stubs: java-stubs
 
 bin: java-build
 

@@ -7,24 +7,19 @@ option java_multiple_files = true;
 option java_package = "com.github.pambrose";
 
 service CanvasService {
-  rpc ping (PingPB) returns (google.protobuf.Empty) {}
-  rpc register (ClientInfoPB) returns (stream ClientInfoPB) {}
-  rpc writeMousePos (stream PositionPB) returns (google.protobuf.Empty) {}
-  rpc readMousePos (google.protobuf.Empty) returns (stream PositionPB) {}
+  rpc register (ClientInfoMsg) returns (stream ClientInfoMsg) {}
+  rpc writeMousePos (stream PositionMsg) returns (google.protobuf.Empty) {}
+  rpc readMousePos (google.protobuf.Empty) returns (stream PositionMsg) {}
 }
 
-message PingPB {
-  string id = 1;
-}
-
-message ClientInfoPB {
+message ClientInfoMsg {
   bool active = 1;
   string id = 2;
   string even = 3;
   string odd = 4;
 }
 
-message PositionPB {
+message PositionMsg {
   string id = 1;
   double x = 2;
   double y = 3;

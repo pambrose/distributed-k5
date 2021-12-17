@@ -1,7 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-    <configuration default="false" name="ReaderCanvasKt" type="JetRunConfigurationType" singleton="false"
-                   nameIsGenerated="true">
-        <option name="MAIN_CLASS_NAME" value="ReaderCanvasKt"/>
+    <configuration default="false" name="MultiCanvas" type="JetRunConfigurationType" nameIsGenerated="true">
+        <option name="MAIN_CLASS_NAME" value="MultiCanvas"/>
         <module name="distributed-k5.main"/>
         <shortenClasspath name="NONE"/>
         <method v="2">

@@ -1,9 +1,10 @@
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import com.github.pambrose.ClientInfoPB
-import com.github.pambrose.PingPB
-import com.github.pambrose.PositionPB
+import com.github.pambrose.ClientInfoMsg
+import com.github.pambrose.PingMsg
+import com.github.pambrose.PositionMsg
+import io.grpc.Attributes
 import math.Vector2D
 import math.distance
 import math.limit
@@ -40,23 +41,30 @@ object BaseCanvas {
         val mousePos = AtomicReference<Vector2D>()
     }
 
-    fun ping(block: PingPB.Builder.() -> Unit): PingPB =
-        PingPB.newBuilder().let {
+    fun ping(block: PingMsg.Builder.() -> Unit): PingMsg =
+        PingMsg.newBuilder().let {
             block.invoke(it)
             it.build()
         }
 
-    fun clientInfo(block: ClientInfoPB.Builder.() -> Unit): ClientInfoPB =
-        ClientInfoPB.newBuilder().let {
+    fun clientInfo(block: ClientInfoMsg.Builder.() -> Unit): ClientInfoMsg =
+        ClientInfoMsg.newBuilder().let {
             block.invoke(it)
             it.build()
         }
 
-    fun mousePosition(block: PositionPB.Builder.() -> Unit): PositionPB =
-        PositionPB.newBuilder().let {
+    fun mousePosition(block: PositionMsg.Builder.() -> Unit): PositionMsg =
+        PositionMsg.newBuilder().let {
             block.invoke(it)
             it.build()
         }
+
+    fun attributes(block: Attributes.Builder.() -> Unit): Attributes =
+        Attributes.newBuilder()
+            .run {
+                block(this)
+                build()
+            }
 
     val Color.Companion.Random get() = Color((0..255).random(), (0..255).random(), (0..255).random())
 
