@@ -10,9 +10,8 @@ internal class CanvasServerTransportFilter(val canvasService: CanvasServiceImpl)
     override fun transportReady(attributes: Attributes): Attributes {
         val remoteAddress = attributes.get(REMOTE_ADDR_KEY)?.toString() ?: "Unknown"
         val clientContext = ClientContext(remoteAddress)
-        canvasService.clientContextMap.put(clientContext.clientId, clientContext)
+        canvasService.clientContextMap[clientContext.clientId] = clientContext
         logger.info { "Connected to $clientContext" }
-
         return attributes {
             set(CLIENT_ID_KEY, clientContext.clientId)
             setAll(attributes)

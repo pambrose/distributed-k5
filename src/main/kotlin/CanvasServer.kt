@@ -101,34 +101,49 @@ class CanvasServer(val port: Int) {
 
         override fun register(request: ClientInfoMsg): Flow<ClientInfoMsg> {
             // Lookup client context, which was added in CanvasServerTransportFilter
-            val clientContext = clientContextMap[request.clientId] ?: error("Missing client id: ${request.clientId}")
-            clientContext.assignClientInfo(request)
-            logger.info { "Registering client: $clientContext" }
+            clientContextMap[request.clientId].also { clientContext ->
+                if (clientContext == null) {
+                    "Client context not found for clientId: ${request.clientId}".also { msg ->
+                        logger.error { msg }
+                        error(msg)
+                    }
+                } else {
+                    clientContext.assignClientInfo(request)
+                    logger.info { "Registering client: $clientContext" }
 
-            // Notify all the clients what the colors for the new client are
-            runBlocking {
-                logger.info { "Reporting ${request.clientId} connection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
-                clientContextMap.values.forEach { launch { it.sendMessage(request) } }
-            }
-            // Deliver the client info back to the client
-            return flow {
-                for (clientInfo in clientContext.clientInfoChannel)
-                    emit(clientInfo)
-                logger.info { "Disconnected" }
+                    // Notify all the clients about the colors for the new client
+                    runBlocking {
+                        logger.info { "Reporting ${request.clientId} connection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
+                        clientContextMap.values.forEach { launch { it.sendMessage(request) } }
+                    }
+                    // Deliver the client info back to the client
+                    return flow {
+                        for (clientInfo in clientContext.clientInfoChannel)
+                            emit(clientInfo)
+                    }
+                }
             }
         }
 
         override suspend fun writePositions(requests: Flow<PositionMsg>): Empty =
             requests.collect { positionMsg ->
+                logger.info { "Sending msg to ${clientContextMap.size} clients" }
                 clientContextMap.values.forEach { it.positionChannel.send(positionMsg) }
             }.let { Empty.getDefaultInstance() }
 
         override fun readPositions(request: ClientInfoMsg) =
             flow {
-                val clientContext =
-                    clientContextMap[request.clientId] ?: error("Missing client id: ${request.clientId}")
-                for (elem in clientContext.positionChannel)
-                    emit(elem)
+                clientContextMap[request.clientId].also { clientContext ->
+                    if (clientContext == null) {
+                        "Client context not found for clientId: ${request.clientId}".also { msg ->
+                            logger.error { msg }
+                            error(msg)
+                        }
+                    } else {
+                        for (elem in clientContext.positionChannel)
+                            emit(elem)
+                    }
+                }
             }
 
         companion object : KLogging()

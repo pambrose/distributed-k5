@@ -31,13 +31,14 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
 
     suspend fun register(clientId: String, even: Color, odd: Color) =
         coroutineScope {
-            stub.register(
+            val clientInfo =
                 clientInfo {
                     active = true
                     this.clientId = clientId
                     this.even = even.value.toString()
                     this.odd = odd.value.toString()
-                })
+                }
+            stub.register(clientInfo)
         }
 
     suspend fun writePositions(clientId: String, positionChannel: Channel<Vector2D>) =
@@ -48,8 +49,8 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
                         val mousePos =
                             mousePosition {
                                 this.clientId = clientId
-                                this.x = position.x.toDouble()
-                                this.y = position.y.toDouble()
+                                x = position.x.toDouble()
+                                y = position.y.toDouble()
                             }
                         emit(mousePos)
                     }

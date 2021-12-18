@@ -1,6 +1,6 @@
 import CanvasServerTransportFilter.Companion.CLIENT_ID
 import CanvasServerTransportFilter.Companion.CLIENT_ID_KEY
-import io.grpc.ForwardingServerCall
+import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.Metadata
 import io.grpc.Metadata.ASCII_STRING_MARSHALLER
 import io.grpc.ServerCall
@@ -15,7 +15,7 @@ class CanvasServerInterceptor : ServerInterceptor {
         handler: ServerCallHandler<ReqT, RespT>
     ) =
         handler.startCall(
-            object : ForwardingServerCall.SimpleForwardingServerCall<ReqT, RespT>(call) {
+            object : SimpleForwardingServerCall<ReqT, RespT>(call) {
                 override fun sendHeaders(headers: Metadata) {
                     try {
                         // CLIENT_ID was assigned in CanvasServerTransportFilter

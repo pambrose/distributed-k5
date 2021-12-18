@@ -18,7 +18,7 @@ class MultiCanvas {
     val clientContextMap = ConcurrentHashMap<String, ClientContext>()
     val positionChannel = Channel<Vector2D>(CONFLATED)
     val grpcService = CanvasService(this, "localhost")
-    val clientId = clientIdRef.get()
+    val clientId get() = clientIdRef.get()
 
     companion object {
         const val UNASSIGNED_CLIENT_ID = "unassigned"
@@ -79,7 +79,6 @@ class MultiCanvas {
                         }
                     )
                 ) { drawScope ->
-                    //logger.info { "Canvas count: ${canvas.clientContextMap.size}" }
                     canvas.clientContextMap.values
                         .forEach { clientContext ->
                             drawScope.drawBalls(clientContext.balls, clientContext.mousePos.get() ?: Vector2D(0f, 0f))

@@ -5,7 +5,7 @@ import io.grpc.Channel
 import io.grpc.ClientCall
 import io.grpc.ClientInterceptor
 import io.grpc.ForwardingClientCall
-import io.grpc.ForwardingClientCallListener
+import io.grpc.ForwardingClientCallListener.SimpleForwardingClientCallListener
 import io.grpc.Metadata
 import io.grpc.MethodDescriptor
 import mu.KLogging
@@ -22,20 +22,16 @@ class CanvasClientInterceptor(private val canvas: MultiCanvas) : ClientIntercept
         ) {
             override fun start(responseListener: Listener<RespT>, metadata: Metadata) {
                 super.start(
-                    object : ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(responseListener) {
+                    object : SimpleForwardingClientCallListener<RespT>(responseListener) {
                         override fun onHeaders(headers: Metadata?) {
                             if (headers == null) {
                                 logger.error { "Missing headers" }
                             } else {
-                                try {
-                                    // Assign clientId from headers if not already assigned
-                                    headers.get(META_CLIENT_ID_KEY)?.also { clientId ->
-                                        if (canvas.clientIdRef.compareAndSet(UNASSIGNED_CLIENT_ID, clientId))
-                                            logger.info { "Assigned clientId: $clientId" }
-                                    } ?: logger.error { "Headers missing CLIENT_ID key" }
-                                } catch (e: Exception) {
-                                    logger.error(e) { "Error assigning clientId" }
-                                }
+                                // Assign clientId from headers if not already assigned
+                                headers.get(META_CLIENT_ID_KEY)?.also { clientId ->
+                                    if (canvas.clientIdRef.compareAndSet(UNASSIGNED_CLIENT_ID, clientId))
+                                        logger.info { "Assigned clientId: $clientId" }
+                                } ?: logger.error { "Headers missing CLIENT_ID key" }
                             }
                             super.onHeaders(headers)
                         }
