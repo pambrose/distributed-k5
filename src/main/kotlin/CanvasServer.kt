@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
+import java.io.Closeable
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
@@ -55,7 +56,7 @@ class CanvasServer(val port: Int) {
         }
     }
 
-    data class ClientContext(private val remoteAddr: String) {
+    class ClientContext(private val remoteAddr: String) : Closeable {
         val clientId = UUID.randomUUID().toString()
         val clientInfoChannel = Channel<ClientInfoMsg>(UNLIMITED)
         val positionChannel = Channel<PositionMsg>(CONFLATED)
@@ -70,6 +71,11 @@ class CanvasServer(val port: Int) {
 
         suspend fun sendMessage(message: ClientInfoMsg) {
             clientInfoChannel.send(message)
+        }
+
+        override fun close() {
+            clientInfoChannel.close()
+            positionChannel.close()
         }
 
         override fun toString() = "ClientContext(clientId='$clientId')"
@@ -94,6 +100,7 @@ class CanvasServer(val port: Int) {
                             })
                     }
                 }
+                clientContext.close()
             }
         }
 
@@ -125,24 +132,22 @@ class CanvasServer(val port: Int) {
             }
         }
 
-        override suspend fun writePositions(requests: Flow<PositionMsg>): Empty =
+        override suspend fun writePositions(requests: Flow<PositionMsg>) =
             requests.collect { positionMsg ->
-                logger.info { "Sending msg to ${clientContextMap.size} clients" }
                 clientContextMap.values.forEach { it.positionChannel.send(positionMsg) }
             }.let { Empty.getDefaultInstance() }
 
         override fun readPositions(request: ClientInfoMsg) =
             flow {
                 clientContextMap[request.clientId].also { clientContext ->
-                    if (clientContext == null) {
+                    if (clientContext == null)
                         "Client context not found for clientId: ${request.clientId}".also { msg ->
                             logger.error { msg }
                             error(msg)
                         }
-                    } else {
+                    else
                         for (elem in clientContext.positionChannel)
                             emit(elem)
-                    }
                 }
             }
 

@@ -36,8 +36,8 @@ object BaseCanvas {
     }
 
     class ClientContext(val id: String = UUID.randomUUID().toString(), even: Color, odd: Color) {
-        val balls = List(250) { i -> Ball(i, if (i % 2 == 0) even else odd) }
-        val mousePos = AtomicReference<Vector2D>()
+        val balls = List(5) { i -> Ball(i, if (i % 2 == 0) even else odd) }
+        val position = AtomicReference<Vector2D>()
     }
 
     fun clientInfo(block: ClientInfoMsg.Builder.() -> Unit): ClientInfoMsg =

@@ -31,14 +31,13 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
 
     suspend fun register(clientId: String, even: Color, odd: Color) =
         coroutineScope {
-            val clientInfo =
+            stub.register(
                 clientInfo {
                     active = true
                     this.clientId = clientId
                     this.even = even.value.toString()
                     this.odd = odd.value.toString()
-                }
-            stub.register(clientInfo)
+                })
         }
 
     suspend fun writePositions(clientId: String, positionChannel: Channel<Vector2D>) =
@@ -46,29 +45,31 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
             stub.writePositions(
                 flow {
                     for (position in positionChannel) {
-                        val mousePos =
+                        emit(
                             mousePosition {
                                 this.clientId = clientId
                                 x = position.x.toDouble()
                                 y = position.y.toDouble()
-                            }
-                        emit(mousePos)
+                            })
                     }
                 })
         }
 
     suspend fun readPositions(clientId: String, mousePosMap: ConcurrentMap<String, ClientContext>) =
         coroutineScope {
-            stub.readPositions(clientInfo {
-                active = true
-                this.clientId = clientId
-                this.even = ""
-                this.odd = ""
-            }).collect { mousePosition ->
-                mousePosMap[mousePosition.clientId]?.also { clientContext ->
-                    clientContext.mousePos.set(Vector2D(mousePosition.x.toFloat(), mousePosition.y.toFloat()))
+            stub.readPositions(
+                clientInfo {
+                    active = true
+                    this.clientId = clientId
+                    this.even = ""
+                    this.odd = ""
+                })
+                .collect { position ->
+                    println("Reading position $position")
+                    mousePosMap[position.clientId]?.also { clientContext ->
+                        clientContext.position.set(Vector2D(position.x.toFloat(), position.y.toFloat()))
+                    }
                 }
-            }
         }
 
     override fun close() {

@@ -12,11 +12,11 @@ fun main() =
         show(
             Modifier.pointerMoveFilter(
                 onMove = {
-                    clientContext.mousePos.set(Vector2D(it.x, it.y))
+                    clientContext.position.set(Vector2D(it.x, it.y))
                     false
                 }
             )
         ) { drawScope ->
-            drawScope.drawBalls(clientContext.balls, clientContext.mousePos.get() ?: Vector2D(0f, 0f))
+            drawScope.drawBalls(clientContext.balls, clientContext.position.get() ?: Vector2D(0f, 0f))
         }
     }

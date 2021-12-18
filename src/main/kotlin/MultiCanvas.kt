@@ -81,7 +81,7 @@ class MultiCanvas {
                 ) { drawScope ->
                     canvas.clientContextMap.values
                         .forEach { clientContext ->
-                            drawScope.drawBalls(clientContext.balls, clientContext.mousePos.get() ?: Vector2D(0f, 0f))
+                            drawScope.drawBalls(clientContext.balls, clientContext.position.get() ?: Vector2D(0f, 0f))
                         }
                 }
             }
