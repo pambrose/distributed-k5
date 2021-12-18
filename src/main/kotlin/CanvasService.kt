@@ -31,41 +31,43 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
 
     suspend fun register(clientId: String, even: Color, odd: Color) =
         coroutineScope {
-            val clientInfo =
+            stub.register(
                 clientInfo {
-                    this.active = true
+                    active = true
                     this.clientId = clientId
                     this.even = even.value.toString()
                     this.odd = odd.value.toString()
-                }
-            stub.register(clientInfo)
+                })
         }
 
-    suspend fun writePositions(clientId: String, channel: Channel<Vector2D>) =
+    suspend fun writePositions(clientId: String, positionChannel: Channel<Vector2D>) =
         coroutineScope {
-            flow {
-                for (value in channel) {
-                    val mousePos =
-                        mousePosition {
-                            this.clientId = clientId
-                            this.x = value.x.toDouble()
-                            this.y = value.y.toDouble()
-                        }
-                    emit(mousePos)
-                }
-            }.also { requestFlow ->
-                stub.writeMousePos(requestFlow)
-            }
-        }
-
-    suspend fun readPositions(mousePosMap: ConcurrentMap<String, ClientContext>) =
-        coroutineScope {
-            stub.readMousePos(Empty.getDefaultInstance())
-                .collect { mousePosition ->
-                    mousePosMap[mousePosition.clientId]?.also { clientContext ->
-                        clientContext.mousePos.set(Vector2D(mousePosition.x.toFloat(), mousePosition.y.toFloat()))
+            stub.writePositions(
+                flow {
+                    for (position in positionChannel) {
+                        val mousePos =
+                            mousePosition {
+                                this.clientId = clientId
+                                this.x = position.x.toDouble()
+                                this.y = position.y.toDouble()
+                            }
+                        emit(mousePos)
                     }
+                })
+        }
+
+    suspend fun readPositions(clientId: String, mousePosMap: ConcurrentMap<String, ClientContext>) =
+        coroutineScope {
+            stub.readPositions(clientInfo {
+                active = true
+                this.clientId = clientId
+                this.even = ""
+                this.odd = ""
+            }).collect { mousePosition ->
+                mousePosMap[mousePosition.clientId]?.also { clientContext ->
+                    clientContext.mousePos.set(Vector2D(mousePosition.x.toFloat(), mousePosition.y.toFloat()))
                 }
+            }
         }
 
     override fun close() {

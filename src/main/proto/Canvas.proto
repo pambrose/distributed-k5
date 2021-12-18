@@ -10,8 +10,8 @@ service CanvasService {
   //  rpc add (IntMsg) returns (IntMsg) {}
   rpc connect (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc register (ClientInfoMsg) returns (stream ClientInfoMsg) {}
-  rpc writeMousePos (stream PositionMsg) returns (google.protobuf.Empty) {}
-  rpc readMousePos (google.protobuf.Empty) returns (stream PositionMsg) {}
+  rpc writePositions (stream PositionMsg) returns (google.protobuf.Empty) {}
+  rpc readPositions (ClientInfoMsg) returns (stream PositionMsg) {}
 }
 
 //message IntMsg {
