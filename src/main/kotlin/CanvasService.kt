@@ -1,6 +1,3 @@
-import BaseCanvas.ClientContext
-import BaseCanvas.clientInfo
-import BaseCanvas.mousePosition
 import androidx.compose.ui.graphics.Color
 import com.github.pambrose.CanvasServiceGrpcKt
 import com.google.protobuf.Empty
@@ -12,7 +9,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.flow
 import math.Vector2D
 import java.io.Closeable
-import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeUnit
 
 class CanvasService internal constructor(canvas: MultiCanvas, val channel: ManagedChannel) : Closeable {
@@ -31,45 +27,21 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
 
     suspend fun register(clientId: String, even: Color, odd: Color) =
         coroutineScope {
-            stub.register(
-                clientInfo {
-                    active = true
-                    this.clientId = clientId
-                    this.even = even.value.toString()
-                    this.odd = odd.value.toString()
-                })
+            stub.register(clientInfo(clientId, even, odd))
         }
 
     suspend fun writePositions(clientId: String, positionChannel: Channel<Vector2D>) =
         coroutineScope {
             stub.writePositions(
                 flow {
-                    for (position in positionChannel) {
-                        emit(
-                            mousePosition {
-                                this.clientId = clientId
-                                x = position.x.toDouble()
-                                y = position.y.toDouble()
-                            })
-                    }
+                    for (position in positionChannel)
+                        emit(mousePosition(clientId, position.x, position.y))
                 })
         }
 
-    suspend fun readPositions(clientId: String, mousePosMap: ConcurrentMap<String, ClientContext>) =
+    suspend fun readPositions(clientId: String) =
         coroutineScope {
-            stub.readPositions(
-                clientInfo {
-                    active = true
-                    this.clientId = clientId
-                    this.even = ""
-                    this.odd = ""
-                })
-                .collect { position ->
-                    println("Reading position $position")
-                    mousePosMap[position.clientId]?.also { clientContext ->
-                        clientContext.position.set(Vector2D(position.x.toFloat(), position.y.toFloat()))
-                    }
-                }
+            stub.readPositions(clientInfo(clientId))
         }
 
     override fun close() {

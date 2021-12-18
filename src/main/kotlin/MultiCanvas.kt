@@ -1,5 +1,3 @@
-import BaseCanvas.ClientContext
-import BaseCanvas.Random
 import BaseCanvas.drawBalls
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -8,9 +6,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
 import kotlinx.coroutines.runBlocking
 import math.Vector2D
+import mu.KLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors.newSingleThreadExecutor
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration.Companion.seconds
 
 class MultiCanvas {
     // clientId is set in CanvasClientInterceptor
@@ -20,7 +20,7 @@ class MultiCanvas {
     val grpcService = CanvasService(this, "localhost")
     val clientId get() = clientIdRef.get()
 
-    companion object {
+    companion object : KLogging() {
         const val UNASSIGNED_CLIENT_ID = "unassigned"
 
         @JvmStatic
@@ -29,50 +29,56 @@ class MultiCanvas {
                 val canvas = MultiCanvas()
 
                 // First, synchronously call connect in order to propagate a clientId back to the client
-                canvas.grpcService.also { client -> runBlocking { client.connect() } }
+                runBlocking { canvas.grpcService.connect() }
 
                 newSingleThreadExecutor().execute {
-                    canvas.grpcService
-                        .also { client ->
-                            runBlocking {
-                                client.register(canvas.clientId, Color.Random, Color.Random)
-                                    .collect {
-                                        if (it.active)
-                                            canvas.clientContextMap[it.clientId] =
-                                                ClientContext(
-                                                    it.clientId,
-                                                    Color(it.even.toULong()),
-                                                    Color(it.odd.toULong())
-                                                )
-                                        else
-                                            canvas.clientContextMap.remove(it.clientId)
-                                    }
+                    runBlocking {
+                        canvas.grpcService.register(canvas.clientId, Color.Random, Color.Random)
+                            .collect {
+                                if (it.active)
+                                    canvas.clientContextMap[it.clientId] =
+                                        ClientContext(it.clientId, it.even.toColor(), it.odd.toColor())
+                                else
+                                    canvas.clientContextMap.remove(it.clientId)
                             }
-                        }
+                    }
                 }
 
                 newSingleThreadExecutor().execute {
-                    canvas.grpcService
-                        .also { client ->
-                            runBlocking {
-                                client.writePositions(canvas.clientId, canvas.positionChannel)
-                            }
-                        }
+                    val periodicAction = PeriodicAction(5.seconds)
+                    runBlocking {
+                        periodicAction.attempt { println("Writing positions for ${canvas.clientId}") }
+                        canvas.grpcService.writePositions(canvas.clientId, canvas.positionChannel)
+                    }
                 }
 
                 newSingleThreadExecutor().execute {
-                    canvas.grpcService
-                        .also { client ->
-                            runBlocking {
-                                client.readPositions(canvas.clientId, canvas.clientContextMap)
+                    runBlocking {
+                        val pa1 = PeriodicAction(5.seconds)
+                        val pa2 = PeriodicAction(5.seconds)
+                        canvas.grpcService.readPositions(canvas.clientId)
+                            .collect { position ->
+                                pa1.attempt { println("Reading position $position") }
+                                canvas.clientContextMap[position.clientId]?.also { clientContext ->
+                                    clientContext.positionRef.set(
+                                        Vector2D(
+                                            position.x.toFloat(),
+                                            position.y.toFloat()
+                                        )
+                                    )
+                                } ?: pa2.attempt { logger.error("Received unknown clientId: ${position.clientId}") }
                             }
-                        }
+
+                    }
                 }
+
+                val periodicAction = PeriodicAction(5.seconds)
 
                 show(
                     Modifier.pointerMoveFilter(
                         onMove = {
                             runBlocking {
+                                periodicAction.attempt { println("onMove") }
                                 canvas.positionChannel.send(Vector2D(it.x, it.y))
                             }
                             false
@@ -81,7 +87,8 @@ class MultiCanvas {
                 ) { drawScope ->
                     canvas.clientContextMap.values
                         .forEach { clientContext ->
-                            drawScope.drawBalls(clientContext.balls, clientContext.position.get() ?: Vector2D(0f, 0f))
+                            periodicAction.attempt { println("Drawing ${clientContext.clientId}") }
+                            drawScope.drawBalls(clientContext.balls, clientContext.position)
                         }
                 }
             }

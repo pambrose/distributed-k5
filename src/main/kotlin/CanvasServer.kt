@@ -1,4 +1,3 @@
-import BaseCanvas.clientInfo
 import com.github.pambrose.CanvasServiceGrpcKt
 import com.github.pambrose.ClientInfoMsg
 import com.github.pambrose.PositionMsg
@@ -62,8 +61,8 @@ class CanvasServer(val port: Int) {
         val positionChannel = Channel<PositionMsg>(CONFLATED)
         private val clientInfoRef = AtomicReference<ClientInfoMsg>()
 
-        val even get() = clientInfoRef.get().even
-        val odd get() = clientInfoRef.get().odd
+        val even get() = clientInfoRef.get().even.toColor()
+        val odd get() = clientInfoRef.get().odd.toColor()
 
         fun assignClientInfo(clientInfo: ClientInfoMsg) {
             clientInfoRef.set(clientInfo)
@@ -92,11 +91,8 @@ class CanvasServer(val port: Int) {
                 clientContextMap.values.forEach { clientContext ->
                     launch {
                         clientContext.sendMessage(
-                            clientInfo {
-                                this.active = false
-                                this.clientId = clientContext.clientId
-                                this.even = clientContext.even
-                                this.odd = clientContext.odd
+                            clientInfo(clientContext.clientId, clientContext.even, clientContext.odd) {
+                                active = false
                             })
                     }
                 }
@@ -141,7 +137,7 @@ class CanvasServer(val port: Int) {
             flow {
                 clientContextMap[request.clientId].also { clientContext ->
                     if (clientContext == null)
-                        "Client context not found for clientId: ${request.clientId}".also { msg ->
+                        "Invalid clientId in readPosition(): ${request.clientId}".also { msg ->
                             logger.error { msg }
                             error(msg)
                         }

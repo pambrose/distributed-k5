@@ -1,4 +1,3 @@
-import BaseCanvas.attributes
 import CanvasServer.CanvasServiceImpl
 import CanvasServer.ClientContext
 import io.grpc.Attributes
