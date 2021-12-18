@@ -17,10 +17,14 @@ class CanvasServerInterceptor : ServerInterceptor {
         handler.startCall(
             object : ForwardingServerCall.SimpleForwardingServerCall<ReqT, RespT>(call) {
                 override fun sendHeaders(headers: Metadata) {
-                    // CLIENT_ID was assigned in CanvasServerTransportFilter
-                    call.attributes.get(CLIENT_ID_KEY)?.also { clientId ->
-                        headers.put(META_CLIENT_ID_KEY, clientId)
-                    } ?: logger.warn { "No client id found in call attributes" }
+                    try {
+                        // CLIENT_ID was assigned in CanvasServerTransportFilter
+                        call.attributes.get(CLIENT_ID_KEY)?.also { clientId ->
+                            headers.put(META_CLIENT_ID_KEY, clientId)
+                        } ?: logger.warn { "No client id found in call attributes" }
+                    } catch (e: Exception) {
+                        logger.error(e) { "Error setting client id" }
+                    }
                     super.sendHeaders(headers)
                 }
             },

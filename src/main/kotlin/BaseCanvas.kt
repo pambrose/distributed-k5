@@ -2,7 +2,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import com.github.pambrose.ClientInfoMsg
-import com.github.pambrose.PingMsg
 import com.github.pambrose.PositionMsg
 import io.grpc.Attributes
 import math.Vector2D
@@ -40,12 +39,6 @@ object BaseCanvas {
         val balls = List(250) { i -> Ball(i, if (i % 2 == 0) even else odd) }
         val mousePos = AtomicReference<Vector2D>()
     }
-
-    fun ping(block: PingMsg.Builder.() -> Unit): PingMsg =
-        PingMsg.newBuilder().let {
-            block.invoke(it)
-            it.build()
-        }
 
     fun clientInfo(block: ClientInfoMsg.Builder.() -> Unit): ClientInfoMsg =
         ClientInfoMsg.newBuilder().let {

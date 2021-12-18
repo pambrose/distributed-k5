@@ -24,26 +24,30 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
     constructor(canvas: MultiCanvas, host: String, port: Int = 50051) :
             this(canvas, ManagedChannelBuilder.forAddress(host, port).usePlaintext().build())
 
-    suspend fun register(id: String, even: Color, odd: Color) =
+    suspend fun connect() =
         coroutineScope {
-            // TODO Copilot
+            stub.connect(Empty.getDefaultInstance())
+        }
+
+    suspend fun register(clientId: String, even: Color, odd: Color) =
+        coroutineScope {
             val clientInfo =
                 clientInfo {
                     this.active = true
-                    this.id = id
+                    this.clientId = clientId
                     this.even = even.value.toString()
                     this.odd = odd.value.toString()
                 }
             stub.register(clientInfo)
         }
 
-    suspend fun writePositions(id: String, channel: Channel<Vector2D>) =
+    suspend fun writePositions(clientId: String, channel: Channel<Vector2D>) =
         coroutineScope {
             flow {
                 for (value in channel) {
                     val mousePos =
                         mousePosition {
-                            this.id = id
+                            this.clientId = clientId
                             this.x = value.x.toDouble()
                             this.y = value.y.toDouble()
                         }
@@ -58,7 +62,7 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
         coroutineScope {
             stub.readMousePos(Empty.getDefaultInstance())
                 .collect { mousePosition ->
-                    mousePosMap[mousePosition.id]?.also { clientContext ->
+                    mousePosMap[mousePosition.clientId]?.also { clientContext ->
                         clientContext.mousePos.set(Vector2D(mousePosition.x.toFloat(), mousePosition.y.toFloat()))
                     }
                 }

@@ -16,11 +16,12 @@ import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 
 class CanvasServer(val port: Int) {
     val canvasService = CanvasServiceImpl()
     val interceptors = mutableListOf<ServerInterceptor>(CanvasServerInterceptor())
-    val grpc_server: Server =
+    val grpcServer: Server =
         ServerBuilder
             .forPort(port)
             .addService(canvasService)
@@ -29,13 +30,13 @@ class CanvasServer(val port: Int) {
             .build()
 
     fun start() {
-        grpc_server.start()
+        grpcServer.start()
         logger.info { "Server started, listening on $port" }
         Runtime.getRuntime()
             .addShutdownHook(
                 Thread {
                     println("*** shutting down gRPC server since JVM is shutting down")
-                    grpc_server.shutdown()
+                    grpcServer.shutdown()
                     println("*** server shut down")
                 }
             )
@@ -48,102 +49,78 @@ class CanvasServer(val port: Int) {
             CanvasServer(port)
                 .apply {
                     start()
-                    grpc_server.awaitTermination()
+                    grpcServer.awaitTermination()
                 }
         }
     }
 
-    data class RemoteClientContext(private val remoteAddr: String) {
-        val remoteClientId = UUID.randomUUID().toString()
+    data class ClientContext(private val remoteAddr: String) {
+        val clientId = UUID.randomUUID().toString()
+        val clientInfoChannel = Channel<ClientInfoMsg>(UNLIMITED)
+        val clientInfoRef = AtomicReference<ClientInfoMsg>()
+
+        suspend fun sendMessage(message: ClientInfoMsg) {
+            clientInfoChannel.send(message)
+        }
+
+        override fun toString() = "RemoteClientContext(remoteAddr='$remoteAddr', remoteClientId='$clientId')"
     }
 
-    data class ClientContext(val clientInfo: ClientInfoMsg, val channel: Channel<ClientInfoMsg>) {
-        var timeStamp = System.currentTimeMillis()
-    }
 
     class CanvasServiceImpl : CanvasServiceGrpcKt.CanvasServiceCoroutineImplBase() {
         val clientContextMap = ConcurrentHashMap<String, ClientContext>()
-        val remoteClientContextMap = ConcurrentHashMap<String, RemoteClientContext>()
-        val channel = Channel<PositionMsg>(Channel.CONFLATED)
+        val positionChannel = Channel<PositionMsg>(Channel.CONFLATED)
 
-//        init {
-//            newSingleThreadExecutor().execute {
-//                while (true) {
-//                    Thread.sleep(1000000)
-//                    clientContextMap.values.forEach {
-//                        val age = System.currentTimeMillis() - it.timeStamp
-//                        if (age >= 2000) {
-//                            runBlocking {
-//                                clientContextMap.forEach { id, clientContext ->
-//                                    println("Client disconnected: ${it.clientInfo.id}")
-//                                    clientContextMap.remove(it.clientInfo.id)
-//                                    val removal = clientInfo {
-//                                        active = false
-//                                        id = it.clientInfo.id
-//                                        even = it.clientInfo.even
-//                                        odd = it.clientInfo.odd
-//                                    }
-//                                    launch {
-//                                        clientContext.channel.send(removal)
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-
-        // TODO CoPilot
         @Synchronized
-        fun onClientDisconnect(clientId: String) {
+        fun onClientDisconnect(clientContext: ClientContext) {
             runBlocking {
-                println("Client disconnected: ${clientId}")
-                if (clientContextMap.containsKey(clientId)) {
-                    val msg = clientInfo {
-                        val entry = clientContextMap.remove(clientId) ?: error("Missing client id: $clientId")
-                        active = false
-                        id = entry.clientInfo.id
-                        even = entry.clientInfo.even
-                        odd = entry.clientInfo.odd
-                    }
-                    clientContextMap.values.forEach { clientContext ->
-                        launch {
-                            clientContext.channel.send(msg)
-                        }
+                // logger.info { "Client disconnected: ${clientContext.clientId}" }
+                clientContextMap.values.forEach { clientContext ->
+                    launch {
+                        clientContext.sendMessage(
+                            clientInfo {
+                                this.active = false
+                                this.clientId = clientContext.clientId
+                                this.even = clientContext.clientInfoRef.get().even
+                                this.odd = clientContext.clientInfoRef.get().odd
+                            })
                     }
                 }
             }
         }
 
+        override suspend fun connect(request: Empty): Empty {
+            return Empty.getDefaultInstance()
+        }
+
         override fun register(request: ClientInfoMsg): Flow<ClientInfoMsg> {
-            val channel = Channel<ClientInfoMsg>(UNLIMITED)
-            clientContextMap[request.id] = ClientContext(request, channel)
+            val entry = clientContextMap[request.clientId] ?: error("Missing client id: ${request.clientId}")
+            entry.clientInfoRef.set(request)
+
+            // Notify all the clients what the colors for the new client are
             runBlocking {
-                clientContextMap.forEach { id, clientContext ->
+                clientContextMap.values.forEach { clientContext ->
                     launch {
-                        clientContext.channel.send(request)
+                        clientContext.sendMessage(request)
                     }
                 }
             }
+            // Deliver the client info back to the client
             return flow {
-                for (clientInfo in channel) {
+                for (clientInfo in entry.clientInfoChannel)
                     emit(clientInfo)
-                }
                 println("Disconnected")
             }
         }
 
         override suspend fun writeMousePos(requests: Flow<PositionMsg>): Empty =
             requests.collect {
-                channel.send(it)
-            }.let {
-                Empty.getDefaultInstance()
-            }
+                positionChannel.send(it)
+            }.let { Empty.getDefaultInstance() }
 
         override fun readMousePos(request: Empty) =
             flow {
-                for (elem in channel)
+                for (elem in positionChannel)
                     emit(elem)
             }
 

@@ -1,15 +1,12 @@
 default: versioncheck
 
-all: stubs java-build bin
+all: clean stubs compile
 
-stubs: java-stubs
+compile:
+	./gradlew build
 
-bin: java-build
-
-java: java-stubs java-build
-
-java-build:
-	./gradlew assemble build
+stubs:
+	./gradlew generateProto
 
 clean:
 	./gradlew clean

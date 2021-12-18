@@ -1,4 +1,5 @@
 import CanvasServerInterceptor.Companion.META_CLIENT_ID_KEY
+import MultiCanvas.Companion.UNASSIGNED_CLIENT_ID
 import io.grpc.CallOptions
 import io.grpc.Channel
 import io.grpc.ClientCall
@@ -16,10 +17,9 @@ class CanvasClientInterceptor(private val canvas: MultiCanvas) : ClientIntercept
         callOptions: CallOptions,
         next: Channel
     ): ClientCall<ReqT, RespT> =
-        object :
-            ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(
-                canvas.grpcService.channel.newCall(method, callOptions)
-            ) {
+        object : ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(
+            canvas.grpcService.channel.newCall(method, callOptions)
+        ) {
             override fun start(responseListener: Listener<RespT>, metadata: Metadata) {
                 super.start(
                     object : ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(responseListener) {
@@ -27,11 +27,15 @@ class CanvasClientInterceptor(private val canvas: MultiCanvas) : ClientIntercept
                             if (headers == null) {
                                 logger.error { "Missing headers" }
                             } else {
-                                // Assign client_id from headers if not already assigned
-                                headers.get(META_CLIENT_ID_KEY)?.also { clientId ->
-                                    if (canvas.clientId.compareAndSet("", clientId))
-                                        logger.info { "Assigned clientId: $clientId" }
-                                } ?: logger.error { "Headers missing CLIENT_ID key" }
+                                try {
+                                    // Assign clientId from headers if not already assigned
+                                    headers.get(META_CLIENT_ID_KEY)?.also { clientId ->
+                                        if (canvas.clientIdRef.compareAndSet(UNASSIGNED_CLIENT_ID, clientId))
+                                            logger.info { "Assigned clientId: $clientId" }
+                                    } ?: logger.error { "Headers missing CLIENT_ID key" }
+                                } catch (e: Exception) {
+                                    logger.error(e) { "Error assigning clientId" }
+                                }
                             }
                             super.onHeaders(headers)
                         }

@@ -1,6 +1,6 @@
 import BaseCanvas.attributes
 import CanvasServer.CanvasServiceImpl
-import CanvasServer.RemoteClientContext
+import CanvasServer.ClientContext
 import io.grpc.Attributes
 import io.grpc.ServerTransportFilter
 import mu.KLogging
@@ -8,13 +8,13 @@ import mu.KLogging
 internal class CanvasServerTransportFilter(val canvasService: CanvasServiceImpl) : ServerTransportFilter() {
 
     override fun transportReady(attributes: Attributes): Attributes {
-        fun getRemoteAddr(attributes: Attributes) = attributes.get(REMOTE_ADDR_KEY)?.toString() ?: "Unknown"
-
-        val clientContext = RemoteClientContext(getRemoteAddr(attributes))
-        canvasService.remoteClientContextMap.put(clientContext.remoteClientId, clientContext)
+        val remoteAddress = attributes.get(REMOTE_ADDR_KEY)?.toString() ?: "Unknown"
+        val clientContext = ClientContext(remoteAddress)
+        canvasService.clientContextMap.put(clientContext.clientId, clientContext)
+        logger.info { "Connected to $clientContext" }
 
         return attributes {
-            set(CLIENT_ID_KEY, clientContext.remoteClientId)
+            set(CLIENT_ID_KEY, clientContext.clientId)
             setAll(attributes)
         }
     }
@@ -24,10 +24,14 @@ internal class CanvasServerTransportFilter(val canvasService: CanvasServiceImpl)
             logger.error { "Null attributes" }
         } else {
             attributes.get(CLIENT_ID_KEY)?.also { clientId ->
-                val context = canvasService.remoteClientContextMap.remove(clientId)
-                canvasService.onClientDisconnect(clientId)
-                logger.info { "Disconnected ${if (context != null) "from $context" else "with invalid clientId: $clientId"}" }
-            } ?: logger.error { "Missing clientId in transportTerminated()" }
+                // Remove entry from map
+                val clientContext = canvasService.clientContextMap.remove(clientId)
+                if (clientContext == null)
+                    logger.error { "Missing clientId $clientId in transportTerminated()" }
+                else
+                    canvasService.onClientDisconnect(clientContext)
+                logger.info { "Disconnected ${if (clientContext != null) "from $clientContext" else "with invalid clientId: $clientId"}" }
+            } ?: logger.error { "Missing clientIdKey in transportTerminated()" }
         }
         super.transportTerminated(attributes)
     }
