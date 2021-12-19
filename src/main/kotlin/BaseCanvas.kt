@@ -8,7 +8,7 @@ import math.sub
 import math.toOffSet
 
 object BaseCanvas {
-    val size = 2000 by 2000
+    val size = 200 by 200
 
     data class Ball(val index: Int, val color: Color) {
         val pos = Vector2D()

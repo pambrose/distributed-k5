@@ -22,7 +22,6 @@ internal class CanvasServerTransportFilter(val canvasService: CanvasServiceImpl)
             logger.error { "Null attributes" }
         } else {
             attributes.get(CLIENT_ID_KEY)?.also { clientId ->
-                // Remove entry from map
                 val clientContext = canvasService.clientContextMap.remove(clientId)
                 if (clientContext == null)
                     logger.error { "Missing clientId $clientId in transportTerminated()" }

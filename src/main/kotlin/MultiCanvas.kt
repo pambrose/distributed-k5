@@ -35,11 +35,13 @@ class MultiCanvas {
                     runBlocking {
                         canvas.grpcService.register(canvas.clientId, Color.Random, Color.Random)
                             .collect {
-                                if (it.active)
+                                if (it.active) {
+                                    println("Adding client ${it.clientId}")
                                     canvas.clientContextMap[it.clientId] =
                                         ClientContext(it.clientId, it.even.toColor(), it.odd.toColor())
-                                else
+                                } else {
                                     canvas.clientContextMap.remove(it.clientId)
+                                }
                             }
                     }
                 }
@@ -85,11 +87,8 @@ class MultiCanvas {
                         }
                     )
                 ) { drawScope ->
-                    canvas.clientContextMap.values
-                        .forEach { clientContext ->
-                            periodicAction.attempt { println("Drawing ${clientContext.clientId}") }
-                            drawScope.drawBalls(clientContext.balls, clientContext.position)
-                        }
+                    periodicAction.attempt { println("Drawing for ${canvas.clientContextMap.size} -- ${canvas.clientContextMap.values}") }
+                    canvas.clientContextMap.values.forEach { drawScope.drawBalls(it.balls, it.position) }
                 }
             }
     }

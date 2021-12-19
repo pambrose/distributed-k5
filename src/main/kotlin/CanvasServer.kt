@@ -13,11 +13,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.selects.select
 import mu.KLogging
 import java.io.Closeable
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration.Companion.seconds
 
 class CanvasServer(val port: Int) {
     val canvasService = CanvasServiceImpl()
@@ -86,8 +88,8 @@ class CanvasServer(val port: Int) {
 
         @Synchronized
         fun onClientDisconnect(clientContext: ClientContext) {
+            logger.info { "Reporting ${clientContext.clientId} disconnection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
             runBlocking {
-                logger.info { "Reporting ${clientContext.clientId} disconnection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
                 clientContextMap.values.forEach { clientContext ->
                     launch {
                         clientContext.sendMessage(
@@ -96,8 +98,8 @@ class CanvasServer(val port: Int) {
                             })
                     }
                 }
-                clientContext.close()
             }
+            clientContext.close()
         }
 
         override suspend fun connect(request: Empty) = Empty.getDefaultInstance()
@@ -121,20 +123,29 @@ class CanvasServer(val port: Int) {
                     }
                     // Deliver the client info back to the client
                     return flow {
-                        for (clientInfo in clientContext.clientInfoChannel)
-                            emit(clientInfo)
+                        select<Unit> {
+                            clientContextMap.values.forEach {
+                                it.clientInfoChannel.onReceive {
+                                    emit(it)
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        override suspend fun writePositions(requests: Flow<PositionMsg>) =
-            requests.collect { positionMsg ->
+        override suspend fun writePositions(requests: Flow<PositionMsg>): Empty {
+            val periodicAction = PeriodicAction(5.seconds)
+            return requests.collect { positionMsg ->
+                periodicAction.attempt { println("Reporting ${positionMsg.clientId} map size in writePositions() = ${clientContextMap.size} ${clientContextMap.values}") }
                 clientContextMap.values.forEach { it.positionChannel.send(positionMsg) }
             }.let { Empty.getDefaultInstance() }
+        }
 
         override fun readPositions(request: ClientInfoMsg) =
             flow {
+                println("Reporting ${request.clientId} map size in readPositions() = ${clientContextMap.size} ${clientContextMap.values}")
                 clientContextMap[request.clientId].also { clientContext ->
                     if (clientContext == null)
                         "Invalid clientId in readPosition(): ${request.clientId}".also { msg ->

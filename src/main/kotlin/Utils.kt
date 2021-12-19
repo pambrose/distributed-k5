@@ -26,6 +26,7 @@ class ClientContext(val clientId: String, even: Color, odd: Color) {
     val balls = List(5) { i -> BaseCanvas.Ball(i, if (i % 2 == 0) even else odd) }
     val positionRef = AtomicReference<Vector2D>()
     val position get() = positionRef.get() ?: Vector2D(0f, 0f)
+    override fun toString() = "ClientContext(clientId='$clientId')"
 }
 
 fun clientInfo(
