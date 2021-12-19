@@ -22,13 +22,12 @@ internal class CanvasServerTransportFilter(val canvasService: CanvasServiceImpl)
             logger.error { "Null attributes" }
         } else {
             attributes.get(CLIENT_ID_KEY)?.also { clientId ->
-                val clientContext = canvasService.getClientContext(clientId)
+                val clientContext = canvasService.clientContextMap.remove(clientId)
                 if (clientContext == null)
                     logger.error { "Missing clientId $clientId in transportTerminated()" }
-                else {
-                    clientContext.markClose()
+                else
                     canvasService.onClientDisconnect(clientContext)
-                }
+
                 logger.info { "Disconnected ${if (clientContext != null) "from $clientContext" else "with invalid clientId: $clientId"}" }
             } ?: logger.error { "Missing clientIdKey in transportTerminated()" }
         }

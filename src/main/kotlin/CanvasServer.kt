@@ -9,6 +9,7 @@ import io.grpc.ServerInterceptors
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
@@ -19,6 +20,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors.newSingleThreadExecutor
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class CanvasServer(val port: Int) {
@@ -59,7 +61,6 @@ class CanvasServer(val port: Int) {
 
     class ClientContext(private val remoteAddr: String) : Closeable {
         val clientId = UUID.randomUUID().toString()
-        val closed = AtomicReference(false)
         val clientInfoChannel = Channel<ClientInfoMsg>(UNLIMITED)
         val positionChannel = Channel<PositionMsg>(CONFLATED)
         private val clientInfoRef = AtomicReference<ClientInfoMsg>()
@@ -67,29 +68,17 @@ class CanvasServer(val port: Int) {
         val clientInfo get() = clientInfoRef.get()
         val even get() = clientInfoRef.get().even.toColor()
         val odd get() = clientInfoRef.get().odd.toColor()
-        val isClosed get() = closed.get()
-        val isOpen get() = !closed.get()
 
         fun assignClientInfo(clientInfo: ClientInfoMsg) {
             clientInfoRef.set(clientInfo)
         }
 
         suspend fun sendClientInfoMessage(message: ClientInfoMsg) {
-            if (isClosed)
-                logger.warn { "Attempted to send clientInfo message to closed client $clientId" }
-            else
                 clientInfoChannel.send(message)
         }
 
         suspend fun sendPositionMessage(message: PositionMsg) {
-            if (isClosed)
-                logger.warn { "Attempted to send position message to closed client $clientId" }
-            else
                 positionChannel.send(message)
-        }
-
-        fun markClose() {
-            closed.set(true)
         }
 
         override fun close() {
@@ -101,21 +90,16 @@ class CanvasServer(val port: Int) {
     }
 
     class CanvasServiceImpl : CanvasServiceGrpcKt.CanvasServiceCoroutineImplBase() {
-        private val clientContextMap = ConcurrentHashMap<String, ClientContext>()
+        val clientContextMap = ConcurrentHashMap<String, ClientContext>()
 
-        val mapSize get() = clientContextMap.filter { it.value.isOpen }.size
-        val mapKeys get() = clientContextMap.filter { it.value.isOpen }.keys
-        val mapValues get() = clientContextMap.filter { it.value.isOpen }.values
+        val mapSize get() = clientContextMap.size
+        val mapKeys get() = clientContextMap.keys
+        val mapValues get() = clientContextMap.values
 
         fun getClientContext(clientId: String): ClientContext? {
             val clientContext = clientContextMap[clientId]
             if (clientContext == null) {
                 "ClientId not found: $clientId".also { msg ->
-                    logger.error { msg }
-                    //error(msg)
-                }
-            } else if (clientContext.isClosed) {
-                "ClientId is closed: $clientId".also { msg ->
                     logger.error { msg }
                     //error(msg)
                 }
@@ -130,8 +114,10 @@ class CanvasServer(val port: Int) {
         @Synchronized
         fun onClientDisconnect(clientContext: ClientContext) {
             newSingleThreadExecutor().execute {
-                logger.info { "Reporting ${clientContext.clientId} disconnection info to $mapSize clients: $mapKeys" }
                 runBlocking {
+                    // This delay allows the disconnect process that reported this finish
+                    delay(500.milliseconds)
+                    logger.info { "Reporting ${clientContext.clientId} disconnection info to $mapSize clients: $mapKeys" }
                     mapValues.forEach { it ->
                         it.sendClientInfoMessage(
                             clientInfo(clientContext.clientId, clientContext.even, clientContext.odd) {
