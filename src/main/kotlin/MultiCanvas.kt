@@ -40,6 +40,7 @@ class MultiCanvas {
                                     canvas.clientContextMap[it.clientId] =
                                         ClientContext(it.clientId, it.even.toColor(), it.odd.toColor())
                                 } else {
+                                    println("Removing client ${it.clientId}")
                                     canvas.clientContextMap.remove(it.clientId)
                                 }
                             }
@@ -60,7 +61,7 @@ class MultiCanvas {
                         val pa2 = PeriodicAction(5.seconds)
                         canvas.grpcService.readPositions(canvas.clientId)
                             .collect { position ->
-                                pa1.attempt { println("Reading position $position") }
+                                pa1.attempt { println("Reading position for ${position.clientId}") }
                                 canvas.clientContextMap[position.clientId]?.also { clientContext ->
                                     clientContext.positionRef.set(
                                         Vector2D(
@@ -74,15 +75,12 @@ class MultiCanvas {
                     }
                 }
 
-                val periodicAction = PeriodicAction(5.seconds)
+                val periodicAction = PeriodicAction(10.seconds)
 
                 show(
                     Modifier.pointerMoveFilter(
                         onMove = {
-                            runBlocking {
-                                periodicAction.attempt { println("onMove") }
-                                canvas.positionChannel.send(Vector2D(it.x, it.y))
-                            }
+                            runBlocking { canvas.positionChannel.send(Vector2D(it.x, it.y)) }
                             false
                         }
                     )

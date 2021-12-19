@@ -11,7 +11,6 @@ import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.selects.select
 import mu.KLogging
@@ -71,8 +70,12 @@ class CanvasServer(val port: Int) {
             clientInfoRef.set(clientInfo)
         }
 
-        suspend fun sendMessage(message: ClientInfoMsg) {
+        suspend fun sendClientInfoMessage(message: ClientInfoMsg) {
             clientInfoChannel.send(message)
+        }
+
+        suspend fun sendPositionMessage(message: PositionMsg) {
+            positionChannel.send(message)
         }
 
         override fun close() {
@@ -91,16 +94,14 @@ class CanvasServer(val port: Int) {
         fun onClientDisconnect(clientContext: ClientContext) {
             logger.info { "Reporting ${clientContext.clientId} disconnection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
             runBlocking {
-                clientContextMap.values.forEach { clientContext ->
-                    launch {
-                        clientContext.sendMessage(
-                            clientInfo(clientContext.clientId, clientContext.even, clientContext.odd) {
-                                active = false
-                            })
-                    }
+                clientContextMap.values.forEach { it ->
+                    it.sendClientInfoMessage(
+                        clientInfo(clientContext.clientId, clientContext.even, clientContext.odd) {
+                            active = false
+                        })
                 }
             }
-            clientContext.close()
+            //clientContext.close()
         }
 
         override suspend fun connect(request: Empty) = Empty.getDefaultInstance()
@@ -116,11 +117,11 @@ class CanvasServer(val port: Int) {
                 } else {
                     clientContext.assignClientInfo(request)
                     logger.info { "Registering client: $clientContext" }
-
+                    // TODO sync this
                     // Notify all the existing clients about the new client
                     runBlocking {
                         logger.info { "Reporting ${request.clientId} connection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
-                        clientContextMap.values.forEach { it.sendMessage(request) }
+                        clientContextMap.values.forEach { it.sendClientInfoMessage(request) }
                     }
 
                     val preexisting =
@@ -128,7 +129,6 @@ class CanvasServer(val port: Int) {
                             .filter { it.clientId != request.clientId }
                             .map { it.clientInfo }
 
-                    // Deliver the client info back to the client
                     return flow {
                         for (item in preexisting)
                             emit(item)
@@ -137,7 +137,7 @@ class CanvasServer(val port: Int) {
                             select<Unit> {
                                 clientContextMap.values.forEach { cc ->
                                     cc.clientInfoChannel.onReceive { msg ->
-                                        println("Sending client info $msg to client: $cc")
+                                        println("Sending client info for ${msg.clientId} to client: $cc")
                                         emit(msg)
                                     }
                                 }
@@ -151,7 +151,7 @@ class CanvasServer(val port: Int) {
             val periodicAction = PeriodicAction(5.seconds)
             return requests.collect { positionMsg ->
                 periodicAction.attempt { println("Reporting ${positionMsg.clientId} map size in writePositions() = ${clientContextMap.size} ${clientContextMap.values}") }
-                clientContextMap.values.forEach { it.positionChannel.send(positionMsg) }
+                clientContextMap.values.forEach { it.sendPositionMessage(positionMsg) }
             }.let { Empty.getDefaultInstance() }
         }
 
