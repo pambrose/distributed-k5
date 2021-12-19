@@ -63,6 +63,7 @@ class CanvasServer(val port: Int) {
         val positionChannel = Channel<PositionMsg>(CONFLATED)
         private val clientInfoRef = AtomicReference<ClientInfoMsg>()
 
+        val clientInfo get() = clientInfoRef.get()
         val even get() = clientInfoRef.get().even.toColor()
         val odd get() = clientInfoRef.get().odd.toColor()
 
@@ -116,20 +117,31 @@ class CanvasServer(val port: Int) {
                     clientContext.assignClientInfo(request)
                     logger.info { "Registering client: $clientContext" }
 
-                    // Notify all the clients about the colors for the new client
+                    // Notify all the existing clients about the new client
                     runBlocking {
                         logger.info { "Reporting ${request.clientId} connection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
-                        clientContextMap.values.forEach { launch { it.sendMessage(request) } }
+                        clientContextMap.values.forEach { it.sendMessage(request) }
                     }
+
+                    val preexisting =
+                        clientContextMap.values
+                            .filter { it.clientId != request.clientId }
+                            .map { it.clientInfo }
+
                     // Deliver the client info back to the client
                     return flow {
-                        select<Unit> {
-                            clientContextMap.values.forEach {
-                                it.clientInfoChannel.onReceive {
-                                    emit(it)
+                        for (item in preexisting)
+                            emit(item)
+
+                        while (true)
+                            select<Unit> {
+                                clientContextMap.values.forEach { cc ->
+                                    cc.clientInfoChannel.onReceive { msg ->
+                                        println("Sending client info $msg to client: $cc")
+                                        emit(msg)
+                                    }
                                 }
                             }
-                        }
                     }
                 }
             }
