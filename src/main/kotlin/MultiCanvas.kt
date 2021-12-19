@@ -10,7 +10,6 @@ import mu.KLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors.newSingleThreadExecutor
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.time.Duration.Companion.seconds
 
 class MultiCanvas {
     // clientId is set in CanvasClientInterceptor
@@ -20,14 +19,9 @@ class MultiCanvas {
     val grpcService = CanvasService(this, "localhost")
     val clientId get() = clientIdRef.get()
 
-    val mapSize get() = clientContextMap.filter { it.value.isOpen }.size
-    val mapKeys get() = clientContextMap.filter { it.value.isOpen }.keys
-    val mapValues get() = clientContextMap.filter { it.value.isOpen }.values
-
-    fun markClosed(clientId: String) {
-        val clientContext = clientContextMap[clientId]!!
-        clientContext.closed.set(true)
-    }
+    val mapSize get() = clientContextMap.size
+    val mapKeys get() = clientContextMap.keys
+    val mapValues get() = clientContextMap.values
 
     companion object : KLogging() {
         const val UNASSIGNED_CLIENT_ID = "unassigned"
@@ -37,7 +31,7 @@ class MultiCanvas {
             k5(size = BaseCanvas.size) {
                 val canvas = MultiCanvas()
 
-                // First, synchronously call connect in order to propagate a clientId back to the client
+                // Call connect synchronously in order to propagate a clientId back to the client
                 runBlocking { canvas.grpcService.connect() }
                 runBlocking { canvas.grpcService.register(canvas.clientId, Color.Random, Color.Random) }
 
@@ -45,34 +39,25 @@ class MultiCanvas {
                     runBlocking {
                         canvas.grpcService.listenForChanges()
                             .collect {
-                                if (it.active) {
-                                    println("Adding client ${it.clientId}")
+                                if (it.active)
                                     canvas.clientContextMap[it.clientId] =
                                         ClientContext(it.clientId, it.even.toColor(), it.odd.toColor())
-                                } else {
-                                    println("Removing client ${it.clientId}")
-                                    //canvas.clientContextMap.remove(it.clientId)
-                                    canvas.markClosed(it.clientId)
-                                }
+                                else
+                                    canvas.clientContextMap.remove(it.clientId)
                             }
                     }
                 }
 
                 newSingleThreadExecutor().execute {
-                    val periodicAction = PeriodicAction(5.seconds)
                     runBlocking {
-                        periodicAction.attempt { println("Writing positions for ${canvas.clientId}") }
                         canvas.grpcService.writePositions(canvas.clientId, canvas.positionChannel)
                     }
                 }
 
                 newSingleThreadExecutor().execute {
                     runBlocking {
-                        val pa1 = PeriodicAction(5.seconds)
-                        val pa2 = PeriodicAction(5.seconds)
                         canvas.grpcService.readPositions(canvas.clientId)
                             .collect { position ->
-                                pa1.attempt { println("Reading position for ${position.clientId}") }
                                 canvas.clientContextMap[position.clientId]?.also { clientContext ->
                                     clientContext.positionRef.set(
                                         Vector2D(
@@ -80,13 +65,11 @@ class MultiCanvas {
                                             position.y.toFloat()
                                         )
                                     )
-                                } ?: pa2.attempt { logger.error("Received unknown clientId: ${position.clientId}") }
+                                } ?: logger.error("Received unknown clientId: ${position.clientId}")
                             }
 
                     }
                 }
-
-                val periodicAction = PeriodicAction(10.seconds)
 
                 show(
                     Modifier.pointerMoveFilter(
@@ -96,7 +79,6 @@ class MultiCanvas {
                         }
                     )
                 ) { drawScope ->
-                    periodicAction.attempt { println("Drawing for ${canvas.mapSize} -- ${canvas.mapKeys}") }
                     canvas.mapValues.forEach { drawScope.drawBalls(it.balls, it.position) }
                 }
             }
