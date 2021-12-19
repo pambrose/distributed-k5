@@ -9,7 +9,8 @@ option java_package = "com.github.pambrose";
 service CanvasService {
   //  rpc add (IntMsg) returns (IntMsg) {}
   rpc connect (google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc register (ClientInfoMsg) returns (stream ClientInfoMsg) {}
+  rpc register (ClientInfoMsg) returns (google.protobuf.Empty) {}
+  rpc listenForChanges (google.protobuf.Empty) returns (stream ClientInfoMsg) {}
   rpc writePositions (stream PositionMsg) returns (google.protobuf.Empty) {}
   rpc readPositions (ClientInfoMsg) returns (stream PositionMsg) {}
 }

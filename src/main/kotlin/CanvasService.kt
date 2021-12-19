@@ -30,6 +30,11 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
             stub.register(clientInfo(clientId, even, odd))
         }
 
+    suspend fun listenForChanges() =
+        coroutineScope {
+            stub.listenForChanges(Empty.getDefaultInstance())
+        }
+
     suspend fun writePositions(clientId: String, positionChannel: Channel<Vector2D>) =
         coroutineScope {
             stub.writePositions(

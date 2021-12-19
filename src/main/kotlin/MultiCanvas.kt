@@ -39,10 +39,11 @@ class MultiCanvas {
 
                 // First, synchronously call connect in order to propagate a clientId back to the client
                 runBlocking { canvas.grpcService.connect() }
+                runBlocking { canvas.grpcService.register(canvas.clientId, Color.Random, Color.Random) }
 
                 newSingleThreadExecutor().execute {
                     runBlocking {
-                        canvas.grpcService.register(canvas.clientId, Color.Random, Color.Random)
+                        canvas.grpcService.listenForChanges()
                             .collect {
                                 if (it.active) {
                                     println("Adding client ${it.clientId}")
