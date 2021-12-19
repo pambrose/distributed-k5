@@ -25,8 +25,10 @@ internal class CanvasServerTransportFilter(val canvasService: CanvasServiceImpl)
                 val clientContext = canvasService.clientContextMap.remove(clientId)
                 if (clientContext == null)
                     logger.error { "Missing clientId $clientId in transportTerminated()" }
-                else
+                else {
                     canvasService.onClientDisconnect(clientContext)
+                    clientContext.markClose()
+                }
                 logger.info { "Disconnected ${if (clientContext != null) "from $clientContext" else "with invalid clientId: $clientId"}" }
             } ?: logger.error { "Missing clientIdKey in transportTerminated()" }
         }

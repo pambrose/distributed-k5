@@ -58,6 +58,7 @@ class CanvasServer(val port: Int) {
 
     class ClientContext(private val remoteAddr: String) : Closeable {
         val clientId = UUID.randomUUID().toString()
+        val closed = AtomicReference<Boolean>(false)
         val clientInfoChannel = Channel<ClientInfoMsg>(UNLIMITED)
         val positionChannel = Channel<PositionMsg>(CONFLATED)
         private val clientInfoRef = AtomicReference<ClientInfoMsg>()
@@ -65,17 +66,28 @@ class CanvasServer(val port: Int) {
         val clientInfo get() = clientInfoRef.get()
         val even get() = clientInfoRef.get().even.toColor()
         val odd get() = clientInfoRef.get().odd.toColor()
+        val isClosed get() = closed.get()
 
         fun assignClientInfo(clientInfo: ClientInfoMsg) {
             clientInfoRef.set(clientInfo)
         }
 
         suspend fun sendClientInfoMessage(message: ClientInfoMsg) {
-            clientInfoChannel.send(message)
+            if (isClosed)
+                logger.warn { "Attempted to send clientInfo message to closed client $clientId" }
+            else
+                clientInfoChannel.send(message)
         }
 
         suspend fun sendPositionMessage(message: PositionMsg) {
-            positionChannel.send(message)
+            if (isClosed)
+                logger.warn { "Attempted to send position message to closed client $clientId" }
+            else
+                positionChannel.send(message)
+        }
+
+        fun markClose() {
+            closed.set(true)
         }
 
         override fun close() {
@@ -101,7 +113,6 @@ class CanvasServer(val port: Int) {
                         })
                 }
             }
-            //clientContext.close()
         }
 
         override suspend fun connect(request: Empty) = Empty.getDefaultInstance()
