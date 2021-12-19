@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerMoveFilter
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import math.Vector2D
 import mu.KLogging
@@ -11,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors.newSingleThreadExecutor
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
 
 class MultiCanvas {
     // clientId is set in CanvasClientInterceptor
@@ -46,12 +48,21 @@ class MultiCanvas {
                 newSingleThreadExecutor().execute {
                     runBlocking {
                         canvas.grpcService.listenForChanges()
-                            .collect {
-                                if (it.active)
-                                    canvas.clientContextMap[it.clientId] =
-                                        ClientContext(it.clientId, it.ballCount, it.even.toColor(), it.odd.toColor())
+                            .collect { msg ->
+                                if (msg.active)
+                                    ClientContext(
+                                        msg.clientId,
+                                        msg.ballCount,
+                                        msg.even.toColor(),
+                                        msg.odd.toColor()
+                                    ).also { clientContext ->
+                                        canvas.clientContextMap[msg.clientId] = clientContext
+                                        // Give it a moment to establish it at the origin
+                                        delay(250.milliseconds)
+                                        clientContext.updatePosition(msg.x, msg.y)
+                                    }
                                 else
-                                    canvas.clientContextMap.remove(it.clientId)
+                                    canvas.clientContextMap.remove(msg.clientId)
                             }
                     }
                 }
@@ -67,12 +78,7 @@ class MultiCanvas {
                         canvas.grpcService.readPositions(canvas.clientId)
                             .collect { position ->
                                 canvas.clientContextMap[position.clientId]?.also { clientContext ->
-                                    clientContext.positionRef.set(
-                                        Vector2D(
-                                            position.x.toFloat(),
-                                            position.y.toFloat()
-                                        )
-                                    )
+                                    clientContext.updatePosition(position.x, position.y)
                                 } ?: logger.error("Received unknown clientId: ${position.clientId}")
                             }
 

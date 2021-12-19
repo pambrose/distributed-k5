@@ -21,6 +21,8 @@ message ClientInfoMsg {
   int32 ball_count = 3;
   string even = 4;
   string odd = 5;
+  double x = 6;
+  double y = 7;
 }
 
 message PositionMsg {

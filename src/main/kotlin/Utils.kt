@@ -24,8 +24,13 @@ class PeriodicAction(val threshold: Duration) {
 
 class ClientContext(val clientId: String, ballCount: Int, even: Color, odd: Color) {
     val balls = List(ballCount) { i -> BaseCanvas.Ball(i, if (i % 2 == 0) even else odd) }
-    val positionRef = AtomicReference<Vector2D>()
-    val position get() = positionRef.get() ?: Vector2D(0f, 0f)
+    val positionRef = AtomicReference(Vector2D(0f, 0f))
+
+    val position get() = positionRef.get()
+
+    fun updatePosition(x: Double, y: Double) {
+        positionRef.set(Vector2D(x.toFloat(), y.toFloat()))
+    }
 
     override fun toString() = "ClientContext(clientId='$clientId')"
 }

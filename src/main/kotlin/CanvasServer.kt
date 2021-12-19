@@ -63,6 +63,7 @@ class CanvasServer(val port: Int) {
         val clientInfoChannel = Channel<ClientInfoMsg>(UNLIMITED)
         val positionChannel = Channel<PositionMsg>(CONFLATED)
         private val clientInfoRef = AtomicReference<ClientInfoMsg>()
+        var position = 0.toDouble() to 0.toDouble()
 
         val clientInfo get() = clientInfoRef.get()
         val ballCount get() = clientInfo.ballCount
@@ -92,7 +93,6 @@ class CanvasServer(val port: Int) {
     class CanvasServiceImpl : CanvasServiceGrpcKt.CanvasServiceCoroutineImplBase() {
         val clientContextMap = ConcurrentHashMap<String, ClientContext>()
 
-        val mapSize get() = clientContextMap.size
         val mapKeys get() = clientContextMap.keys
         val mapValues get() = clientContextMap.values
 
@@ -112,7 +112,7 @@ class CanvasServer(val port: Int) {
                 runBlocking {
                     // This delay allows the disconnect process that reported this finish
                     delay(250.milliseconds)
-                    logger.info { "Reporting ${clientContext.clientId} disconnection info to $mapSize clients: $mapKeys" }
+                    //logger.info { "Reporting ${clientContext.clientId} disconnection info to $mapSize clients: $mapKeys" }
                     mapValues.forEach { it ->
                         it.sendClientInfoMessage(
                             clientInfo(
@@ -148,7 +148,17 @@ class CanvasServer(val port: Int) {
         override fun listenForChanges(request: Empty): Flow<ClientInfoMsg> {
             return flow {
                 // Catch up with the already existing clients
-                mapValues.forEach { emit(it.clientInfo) }
+                mapValues.forEach { it ->
+                    emit(clientInfo(
+                        it.clientId,
+                        it.ballCount,
+                        it.even,
+                        it.odd
+                    ) {
+                        x = it.position.first
+                        y = it.position.second
+                    })
+                }
 
                 while (true)
                     select<Unit> {
@@ -159,21 +169,24 @@ class CanvasServer(val port: Int) {
                             }
                         }
                     }
-
             }
         }
 
-        override suspend fun writePositions(requests: Flow<PositionMsg>): Empty {
-            return requests.collect { positionMsg ->
-                mapValues.forEach { it.sendPositionMessage(positionMsg) }
+        override suspend fun writePositions(requests: Flow<PositionMsg>) =
+            requests.collect { msg ->
+                getClientContext(msg.clientId).position = msg.x to msg.y
+                mapValues.forEach {
+                    it.sendPositionMessage(msg)
+                }
             }.let { Empty.getDefaultInstance() }
-        }
 
         override fun readPositions(request: ClientInfoMsg) =
             flow {
                 getClientContext(request.clientId).also { clientContext ->
-                    for (elem in clientContext.positionChannel)
+                    for (elem in clientContext.positionChannel) {
+                        //clientContext.position = elem.x to elem.y
                         emit(elem)
+                    }
                 }
             }
 

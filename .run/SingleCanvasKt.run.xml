@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false" name="SingleCanvasKt" type="JetRunConfigurationType" singleton="false"
+                   nameIsGenerated="true">
+        <option name="MAIN_CLASS_NAME" value="SingleCanvasKt"/>
+        <module name="distributed-k5.main"/>
+        <shortenClasspath name="NONE"/>
+        <method v="2">
+            <option name="Make" enabled="true"/>
+        </method>
+    </configuration>
+</component>
