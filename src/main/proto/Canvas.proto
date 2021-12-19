@@ -15,15 +15,12 @@ service CanvasService {
   rpc readPositions (ClientInfoMsg) returns (stream PositionMsg) {}
 }
 
-//message IntMsg {
-//  int32 value = 1;
-//}
-
 message ClientInfoMsg {
   bool active = 1;
   string client_id = 2;
-  string even = 3;
-  string odd = 4;
+  int32 ball_count = 3;
+  string even = 4;
+  string odd = 5;
 }
 
 message PositionMsg {

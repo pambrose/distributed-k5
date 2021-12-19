@@ -21,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors.newSingleThreadExecutor
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 class CanvasServer(val port: Int) {
     val canvasService = CanvasServiceImpl()
@@ -66,19 +65,20 @@ class CanvasServer(val port: Int) {
         private val clientInfoRef = AtomicReference<ClientInfoMsg>()
 
         val clientInfo get() = clientInfoRef.get()
-        val even get() = clientInfoRef.get().even.toColor()
-        val odd get() = clientInfoRef.get().odd.toColor()
+        val ballCount get() = clientInfo.ballCount
+        val even get() = clientInfo.even.toColor()
+        val odd get() = clientInfo.odd.toColor()
 
         fun assignClientInfo(clientInfo: ClientInfoMsg) {
             clientInfoRef.set(clientInfo)
         }
 
         suspend fun sendClientInfoMessage(message: ClientInfoMsg) {
-                clientInfoChannel.send(message)
+            clientInfoChannel.send(message)
         }
 
         suspend fun sendPositionMessage(message: PositionMsg) {
-                positionChannel.send(message)
+            positionChannel.send(message)
         }
 
         override fun close() {
@@ -96,31 +96,31 @@ class CanvasServer(val port: Int) {
         val mapKeys get() = clientContextMap.keys
         val mapValues get() = clientContextMap.values
 
-        fun getClientContext(clientId: String): ClientContext? {
-            val clientContext = clientContextMap[clientId]
-            if (clientContext == null) {
-                "ClientId not found: $clientId".also { msg ->
+        fun getClientContext(clientId: String) =
+            clientContextMap[clientId]
+                ?: "ClientId not found: $clientId".let { msg ->
                     logger.error { msg }
-                    //error(msg)
+                    error(msg)
                 }
-            }
-            return clientContext
-        }
 
         fun assignClientContext(clientId: String, clientContext: ClientContext) {
             clientContextMap[clientId] = clientContext
         }
 
-        @Synchronized
         fun onClientDisconnect(clientContext: ClientContext) {
             newSingleThreadExecutor().execute {
                 runBlocking {
                     // This delay allows the disconnect process that reported this finish
-                    delay(500.milliseconds)
+                    delay(250.milliseconds)
                     logger.info { "Reporting ${clientContext.clientId} disconnection info to $mapSize clients: $mapKeys" }
                     mapValues.forEach { it ->
                         it.sendClientInfoMessage(
-                            clientInfo(clientContext.clientId, clientContext.even, clientContext.odd) {
+                            clientInfo(
+                                clientContext.clientId,
+                                clientContext.ballCount,
+                                clientContext.even,
+                                clientContext.odd
+                            ) {
                                 active = false
                             })
                     }
@@ -131,13 +131,13 @@ class CanvasServer(val port: Int) {
         override suspend fun connect(request: Empty) = Empty.getDefaultInstance()
 
         override suspend fun register(request: ClientInfoMsg): Empty {
+            // TODO This needs some synchronization
             // Lookup client context, which was added in CanvasServerTransportFilter
-            getClientContext(request.clientId)?.also { clientContext ->
-                // TODO sync this
-                logger.info { "Registering client: $clientContext" }
+            getClientContext(request.clientId).also { clientContext ->
+                //logger.info { "Registering client: $clientContext" }
 
                 // Notify all the existing clients about the new client
-                logger.info { "Reporting ${request.clientId} connection info to $mapSize clients: $mapKeys" }
+                //logger.info { "Reporting ${request.clientId} connection info to $mapSize clients: $mapKeys" }
                 mapValues.forEach { it.sendClientInfoMessage(request) }
 
                 clientContext.assignClientInfo(request)
@@ -154,8 +154,7 @@ class CanvasServer(val port: Int) {
                     select<Unit> {
                         mapValues.forEach { cc ->
                             cc.clientInfoChannel.onReceive { msg ->
-                                //delay(1.seconds)
-                                println("Sending client info for ${msg.clientId} to: $cc")
+                                //logger.info{"Sending client info for ${msg.clientId} to: $cc"}
                                 emit(msg)
                             }
                         }
@@ -165,17 +164,14 @@ class CanvasServer(val port: Int) {
         }
 
         override suspend fun writePositions(requests: Flow<PositionMsg>): Empty {
-            val periodicAction = PeriodicAction(5.seconds)
             return requests.collect { positionMsg ->
-                periodicAction.attempt { println("Reporting ${positionMsg.clientId} map size in writePositions() = $mapSize $mapKeys") }
                 mapValues.forEach { it.sendPositionMessage(positionMsg) }
             }.let { Empty.getDefaultInstance() }
         }
 
         override fun readPositions(request: ClientInfoMsg) =
             flow {
-                println("Reporting ${request.clientId} map size in readPositions() = $mapSize $mapKeys")
-                getClientContext(request.clientId)?.also { clientContext ->
+                getClientContext(request.clientId).also { clientContext ->
                     for (elem in clientContext.positionChannel)
                         emit(elem)
                 }

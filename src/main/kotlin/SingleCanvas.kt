@@ -6,7 +6,7 @@ import math.Vector2D
 
 fun main() =
     k5(size = BaseCanvas.size) {
-        val clientContext = ClientContext("", Color.Red, Color.Green)
+        val clientContext = ClientContext("", 100, Color.Red, Color.Green)
 
         show(
             Modifier.pointerMoveFilter(

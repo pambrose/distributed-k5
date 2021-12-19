@@ -25,9 +25,9 @@ class CanvasService internal constructor(canvas: MultiCanvas, val channel: Manag
             stub.connect(Empty.getDefaultInstance())
         }
 
-    suspend fun register(clientId: String, even: Color, odd: Color) =
+    suspend fun register(clientId: String, ballCount: Int, even: Color, odd: Color) =
         coroutineScope {
-            stub.register(clientInfo(clientId, even, odd))
+            stub.register(clientInfo(clientId, ballCount, even, odd))
         }
 
     suspend fun listenForChanges() =

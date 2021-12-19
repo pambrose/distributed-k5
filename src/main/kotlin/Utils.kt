@@ -22,8 +22,8 @@ class PeriodicAction(val threshold: Duration) {
     }
 }
 
-class ClientContext(val clientId: String, even: Color, odd: Color) {
-    val balls = List(5) { i -> BaseCanvas.Ball(i, if (i % 2 == 0) even else odd) }
+class ClientContext(val clientId: String, ballCount: Int, even: Color, odd: Color) {
+    val balls = List(ballCount) { i -> BaseCanvas.Ball(i, if (i % 2 == 0) even else odd) }
     val positionRef = AtomicReference<Vector2D>()
     val position get() = positionRef.get() ?: Vector2D(0f, 0f)
 
@@ -32,6 +32,7 @@ class ClientContext(val clientId: String, even: Color, odd: Color) {
 
 fun clientInfo(
     clientId: String,
+    ballCount: Int = -1,
     even: Color? = null,
     odd: Color? = null,
     block: ClientInfoMsg.Builder.() -> Unit = {}
@@ -39,6 +40,7 @@ fun clientInfo(
     ClientInfoMsg.newBuilder().run {
         this.active = true
         this.clientId = clientId
+        this.ballCount = ballCount
         this.even = even?.value?.toString() ?: "unassigned"
         this.odd = odd?.value?.toString() ?: "unassigned"
         block.invoke(this)

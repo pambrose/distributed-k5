@@ -10,6 +10,7 @@ import mu.KLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors.newSingleThreadExecutor
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.random.Random
 
 class MultiCanvas {
     // clientId is set in CanvasClientInterceptor
@@ -33,7 +34,14 @@ class MultiCanvas {
 
                 // Call connect synchronously in order to propagate a clientId back to the client
                 runBlocking { canvas.grpcService.connect() }
-                runBlocking { canvas.grpcService.register(canvas.clientId, Color.Random, Color.Random) }
+                runBlocking {
+                    canvas.grpcService.register(
+                        canvas.clientId,
+                        Random.nextInt(90) + 10,
+                        Color.Random,
+                        Color.Random
+                    )
+                }
 
                 newSingleThreadExecutor().execute {
                     runBlocking {
@@ -41,7 +49,7 @@ class MultiCanvas {
                             .collect {
                                 if (it.active)
                                     canvas.clientContextMap[it.clientId] =
-                                        ClientContext(it.clientId, it.even.toColor(), it.odd.toColor())
+                                        ClientContext(it.clientId, it.ballCount, it.even.toColor(), it.odd.toColor())
                                 else
                                     canvas.clientContextMap.remove(it.clientId)
                             }
