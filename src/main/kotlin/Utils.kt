@@ -23,9 +23,14 @@ class PeriodicAction(val threshold: Duration) {
 }
 
 class ClientContext(val clientId: String, even: Color, odd: Color) {
+    val closed = AtomicReference<Boolean>(false)
     val balls = List(5) { i -> BaseCanvas.Ball(i, if (i % 2 == 0) even else odd) }
     val positionRef = AtomicReference<Vector2D>()
     val position get() = positionRef.get() ?: Vector2D(0f, 0f)
+
+    val isClosed get() = closed.get()
+    val isOpen get() = !closed.get()
+
     override fun toString() = "ClientContext(clientId='$clientId')"
 }
 

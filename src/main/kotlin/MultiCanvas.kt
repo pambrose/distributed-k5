@@ -20,6 +20,15 @@ class MultiCanvas {
     val grpcService = CanvasService(this, "localhost")
     val clientId get() = clientIdRef.get()
 
+    val mapSize get() = clientContextMap.filter { it.value.isOpen }.size
+    val mapKeys get() = clientContextMap.filter { it.value.isOpen }.keys
+    val mapValues get() = clientContextMap.filter { it.value.isOpen }.values
+
+    fun markClosed(clientId: String) {
+        val clientContext = clientContextMap[clientId]!!
+        clientContext.closed.set(true)
+    }
+
     companion object : KLogging() {
         const val UNASSIGNED_CLIENT_ID = "unassigned"
 
@@ -41,7 +50,8 @@ class MultiCanvas {
                                         ClientContext(it.clientId, it.even.toColor(), it.odd.toColor())
                                 } else {
                                     println("Removing client ${it.clientId}")
-                                    canvas.clientContextMap.remove(it.clientId)
+                                    //canvas.clientContextMap.remove(it.clientId)
+                                    canvas.markClosed(it.clientId)
                                 }
                             }
                     }
@@ -85,8 +95,8 @@ class MultiCanvas {
                         }
                     )
                 ) { drawScope ->
-                    periodicAction.attempt { println("Drawing for ${canvas.clientContextMap.size} -- ${canvas.clientContextMap.values}") }
-                    canvas.clientContextMap.values.forEach { drawScope.drawBalls(it.balls, it.position) }
+                    periodicAction.attempt { println("Drawing for ${canvas.mapSize} -- ${canvas.mapKeys}") }
+                    canvas.mapValues.forEach { drawScope.drawBalls(it.balls, it.position) }
                 }
             }
     }

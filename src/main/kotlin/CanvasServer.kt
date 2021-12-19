@@ -67,6 +67,7 @@ class CanvasServer(val port: Int) {
         val even get() = clientInfoRef.get().even.toColor()
         val odd get() = clientInfoRef.get().odd.toColor()
         val isClosed get() = closed.get()
+        val isOpen get() = !closed.get()
 
         fun assignClientInfo(clientInfo: ClientInfoMsg) {
             clientInfoRef.set(clientInfo)
@@ -100,13 +101,37 @@ class CanvasServer(val port: Int) {
 
 
     class CanvasServiceImpl : CanvasServiceGrpcKt.CanvasServiceCoroutineImplBase() {
-        val clientContextMap = ConcurrentHashMap<String, ClientContext>()
+        private val clientContextMap = ConcurrentHashMap<String, ClientContext>()
+
+        val mapSize get() = clientContextMap.filter { it.value.isOpen }.size
+        val mapKeys get() = clientContextMap.filter { it.value.isOpen }.keys
+        val mapValues get() = clientContextMap.filter { it.value.isOpen }.values
+
+        fun getClientContext(clientId: String): ClientContext? {
+            val clientContext = clientContextMap[clientId]
+            if (clientContext == null) {
+                "ClientId not found: $clientId".also { msg ->
+                    logger.error { msg }
+                    //error(msg)
+                }
+            } else if (clientContext.isClosed) {
+                "ClientId is closed: $clientId".also { msg ->
+                    logger.error { msg }
+                    //error(msg)
+                }
+            }
+            return clientContext
+        }
+
+        fun assignClientContext(clientId: String, clientContext: ClientContext) {
+            clientContextMap[clientId] = clientContext
+        }
 
         @Synchronized
         fun onClientDisconnect(clientContext: ClientContext) {
-            logger.info { "Reporting ${clientContext.clientId} disconnection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
+            logger.info { "Reporting ${clientContext.clientId} disconnection info to $mapSize clients: $mapKeys" }
             runBlocking {
-                clientContextMap.values.forEach { it ->
+                mapValues.forEach { it ->
                     it.sendClientInfoMessage(
                         clientInfo(clientContext.clientId, clientContext.even, clientContext.odd) {
                             active = false
@@ -119,25 +144,26 @@ class CanvasServer(val port: Int) {
 
         override fun register(request: ClientInfoMsg): Flow<ClientInfoMsg> {
             // Lookup client context, which was added in CanvasServerTransportFilter
-            clientContextMap[request.clientId].also { clientContext ->
+            getClientContext(request.clientId).also { clientContext ->
                 if (clientContext == null) {
                     "Client context not found for clientId: ${request.clientId}".also { msg ->
                         logger.error { msg }
                         error(msg)
                     }
                 } else {
-                    clientContext.assignClientInfo(request)
-                    logger.info { "Registering client: $clientContext" }
                     // TODO sync this
+                    logger.info { "Registering client: $clientContext" }
+                    clientContext.assignClientInfo(request)
+
                     // Notify all the existing clients about the new client
                     runBlocking {
-                        logger.info { "Reporting ${request.clientId} connection info to ${clientContextMap.size} clients: ${clientContextMap.keys}" }
-                        clientContextMap.values.forEach { it.sendClientInfoMessage(request) }
+                        logger.info { "Reporting ${request.clientId} connection info to $mapSize clients: $mapKeys" }
+                        mapValues.forEach { it.sendClientInfoMessage(request) }
                     }
 
                     val preexisting =
-                        clientContextMap.values
-                            .filter { it.clientId != request.clientId }
+                        mapValues
+                            //.filter { it.clientId != request.clientId }
                             .map { it.clientInfo }
 
                     return flow {
@@ -146,7 +172,7 @@ class CanvasServer(val port: Int) {
 
                         while (true)
                             select<Unit> {
-                                clientContextMap.values.forEach { cc ->
+                                mapValues.forEach { cc ->
                                     cc.clientInfoChannel.onReceive { msg ->
                                         println("Sending client info for ${msg.clientId} to client: $cc")
                                         emit(msg)
@@ -161,15 +187,15 @@ class CanvasServer(val port: Int) {
         override suspend fun writePositions(requests: Flow<PositionMsg>): Empty {
             val periodicAction = PeriodicAction(5.seconds)
             return requests.collect { positionMsg ->
-                periodicAction.attempt { println("Reporting ${positionMsg.clientId} map size in writePositions() = ${clientContextMap.size} ${clientContextMap.values}") }
-                clientContextMap.values.forEach { it.sendPositionMessage(positionMsg) }
+                periodicAction.attempt { println("Reporting ${positionMsg.clientId} map size in writePositions() = $mapSize $mapKeys") }
+                mapValues.forEach { it.sendPositionMessage(positionMsg) }
             }.let { Empty.getDefaultInstance() }
         }
 
         override fun readPositions(request: ClientInfoMsg) =
             flow {
-                println("Reporting ${request.clientId} map size in readPositions() = ${clientContextMap.size} ${clientContextMap.values}")
-                clientContextMap[request.clientId].also { clientContext ->
+                println("Reporting ${request.clientId} map size in readPositions() = $mapSize $mapKeys")
+                getClientContext(request.clientId).also { clientContext ->
                     if (clientContext == null)
                         "Invalid clientId in readPosition(): ${request.clientId}".also { msg ->
                             logger.error { msg }

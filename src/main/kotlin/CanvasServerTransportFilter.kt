@@ -9,7 +9,7 @@ internal class CanvasServerTransportFilter(val canvasService: CanvasServiceImpl)
     override fun transportReady(attributes: Attributes): Attributes {
         val remoteAddress = attributes.get(REMOTE_ADDR_KEY)?.toString() ?: "Unknown"
         val clientContext = ClientContext(remoteAddress)
-        canvasService.clientContextMap[clientContext.clientId] = clientContext
+        canvasService.assignClientContext(clientContext.clientId, clientContext)
         logger.info { "Connected to $clientContext" }
         return attributes {
             set(CLIENT_ID_KEY, clientContext.clientId)
@@ -22,12 +22,12 @@ internal class CanvasServerTransportFilter(val canvasService: CanvasServiceImpl)
             logger.error { "Null attributes" }
         } else {
             attributes.get(CLIENT_ID_KEY)?.also { clientId ->
-                val clientContext = canvasService.clientContextMap.remove(clientId)
+                val clientContext = canvasService.getClientContext(clientId)
                 if (clientContext == null)
                     logger.error { "Missing clientId $clientId in transportTerminated()" }
                 else {
-                    canvasService.onClientDisconnect(clientContext)
                     clientContext.markClose()
+                    canvasService.onClientDisconnect(clientContext)
                 }
                 logger.info { "Disconnected ${if (clientContext != null) "from $clientContext" else "with invalid clientId: $clientId"}" }
             } ?: logger.error { "Missing clientIdKey in transportTerminated()" }
