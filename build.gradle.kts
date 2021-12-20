@@ -10,10 +10,10 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     java
     idea
-    kotlin("jvm") version "1.5.21"
+    kotlin("jvm") version "1.5.31"
     id("com.google.protobuf") version "0.8.18"
     id("com.github.ben-manes.versions") version "0.39.0"
-    id("org.jetbrains.compose") version "1.0.0-alpha3" // 1.1.0-alpha1-dev527
+    id("org.jetbrains.compose") version "1.1.0-alpha1-dev527" // "1.0.0-alpha3" // 1.1.0-alpha1-dev527
 }
 
 group = "com.github.pambrose"
@@ -41,7 +41,7 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation(compose.desktop.currentOs)
 
-    implementation("com.github.pambrose:k5-compose:ca0fc1a")
+    implementation("com.github.pambrose:k5-compose:d4decc8")
 
 //    implementation("io.grpc:grpc-all:$grpcVersion")
 //    api("io.grpc:grpc-kotlin-stub:0.2.1")
@@ -80,7 +80,8 @@ tasks.withType<KotlinCompile>().configureEach {
         listOf(
             "-Xopt-in=kotlinx.coroutines.InternalCoroutinesApi",
             "-Xopt-in=kotlin.time.ExperimentalTime",
-            "-Xopt-in=androidx.compose.foundation.ExperimentalFoundationApi"
+            "-Xopt-in=androidx.compose.ui.ExperimentalComposeUiApi",
+            "-Xopt-in=androidx.compose.foundation.ExperimentalFoundationApi",
         )
 }
 
