@@ -1,4 +1,5 @@
 import BaseCanvas.drawBalls
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerMoveFilter
@@ -10,6 +11,7 @@ import math.Vector2D
 import mu.KLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors.newSingleThreadExecutor
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
@@ -21,10 +23,9 @@ class MultiCanvas {
     val positionChannel = Channel<Vector2D>(CONFLATED)
     val grpcService = CanvasService(this, "localhost")
     val clientId get() = clientIdRef.get()
+    val mouseOn = AtomicBoolean(true)
 
-    val mapSize get() = clientContextMap.size
-    val mapKeys get() = clientContextMap.keys
-    val mapValues get() = clientContextMap.values
+    val isMouseOn get() = mouseOn.get()
 
     companion object : KLogging() {
         const val UNASSIGNED_CLIENT_ID = "unassigned"
@@ -50,17 +51,13 @@ class MultiCanvas {
                         canvas.grpcService.listenForChanges()
                             .collect { msg ->
                                 if (msg.active)
-                                    ClientContext(
-                                        msg.clientId,
-                                        msg.ballCount,
-                                        msg.even.toColor(),
-                                        msg.odd.toColor()
-                                    ).also { clientContext ->
-                                        canvas.clientContextMap[msg.clientId] = clientContext
-                                        // Give it a moment to establish it at the origin
-                                        delay(250.milliseconds)
-                                        clientContext.updatePosition(msg.x, msg.y)
-                                    }
+                                    ClientContext(msg)
+                                        .also { clientContext ->
+                                            canvas.clientContextMap[msg.clientId] = clientContext
+                                            // Give it a moment to establish it at the origin
+                                            delay(250.milliseconds)
+                                            clientContext.updatePosition(msg.x, msg.y)
+                                        }
                                 else
                                     canvas.clientContextMap.remove(msg.clientId)
                             }
@@ -81,19 +78,24 @@ class MultiCanvas {
                                     clientContext.updatePosition(position.x, position.y)
                                 } ?: logger.error("Received unknown clientId: ${position.clientId}")
                             }
-
                     }
                 }
 
                 show(
-                    Modifier.pointerMoveFilter(
-                        onMove = {
-                            runBlocking { canvas.positionChannel.send(Vector2D(it.x, it.y)) }
-                            false
+                    Modifier.combinedClickable(
+                        onClick = {
+                            canvas.mouseOn.set(canvas.isMouseOn.not())
                         }
-                    )
-                ) { drawScope ->
-                    canvas.mapValues.forEach { drawScope.drawBalls(it.balls, it.position) }
+                    ).then(
+                        Modifier.pointerMoveFilter(
+                            onMove = { point ->
+                                if (canvas.isMouseOn)
+                                    runBlocking { canvas.positionChannel.send(Vector2D(point.x, point.y)) }
+                                false
+                            }
+                        )
+                    )) { drawScope ->
+                    canvas.clientContextMap.values.forEach { drawScope.drawBalls(it.balls, it.position) }
                 }
             }
     }

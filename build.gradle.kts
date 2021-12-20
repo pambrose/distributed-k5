@@ -53,7 +53,6 @@ dependencies {
 
     implementation("io.grpc:grpc-kotlin-stub:$gengrpcVersion")
     implementation("io.grpc:grpc-protobuf:$grpcVersion")
-    //implementation("com.google.protobuf:protobuf-kotlin:0.8.17")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$coroutinesVersion")
@@ -77,16 +76,20 @@ tasks.withType<KotlinCompile> {
 }
 
 tasks.withType<KotlinCompile>().configureEach {
-    kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlinx.coroutines.InternalCoroutinesApi"
-    kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.time.ExperimentalTime"
+    kotlinOptions.freeCompilerArgs =
+        listOf(
+            "-Xopt-in=kotlinx.coroutines.InternalCoroutinesApi",
+            "-Xopt-in=kotlin.time.ExperimentalTime",
+            "-Xopt-in=androidx.compose.foundation.ExperimentalFoundationApi"
+        )
 }
 
 compose.desktop {
     application {
-        mainClass = "MainKt"
+        mainClass = "MultiCanvas"
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "k5-compose-examples"
+            packageName = ""
             packageVersion = "1.0.0"
         }
     }
@@ -95,7 +98,7 @@ compose.desktop {
 sourceSets {
     main {
         proto {
-            srcDir("src/main/resources/proto")
+            srcDir("src/main/proto")
         }
     }
 }

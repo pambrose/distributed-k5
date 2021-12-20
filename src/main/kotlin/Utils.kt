@@ -22,7 +22,9 @@ class PeriodicAction(val threshold: Duration) {
     }
 }
 
-class ClientContext(val clientId: String, ballCount: Int, even: Color, odd: Color) {
+class ClientContext constructor(val clientId: String, ballCount: Int, even: Color, odd: Color) {
+    constructor(msg: ClientInfoMsg) : this(msg.clientId, msg.ballCount, msg.even.toColor(), msg.odd.toColor())
+
     val balls = List(ballCount) { i -> BaseCanvas.Ball(i, if (i % 2 == 0) even else odd) }
     val positionRef = AtomicReference(Vector2D(0f, 0f))
 
