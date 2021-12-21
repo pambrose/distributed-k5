@@ -26,7 +26,6 @@ repositories {
     google()
     mavenCentral()
     maven("https://jitpack.io")
-
 }
 
 val coroutinesVersion: String by project
@@ -42,9 +41,6 @@ dependencies {
     implementation(compose.desktop.currentOs)
 
     implementation("com.github.pambrose:k5-compose:8f36e55")
-
-//    implementation("io.grpc:grpc-all:$grpcVersion")
-//    api("io.grpc:grpc-kotlin-stub:0.2.1")
 
     implementation("io.grpc:grpc-netty:$grpcVersion")
     implementation("io.grpc:grpc-protobuf:$grpcVersion")

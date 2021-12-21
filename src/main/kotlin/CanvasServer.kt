@@ -110,9 +110,8 @@ class CanvasServer(val port: Int) {
         fun onClientDisconnect(clientContext: ClientContext) {
             newSingleThreadExecutor().execute {
                 runBlocking {
-                    // This delay allows the disconnect process that reported this finish
+                    // This delay allows the disconnect process that reported this to finish
                     delay(250.milliseconds)
-                    //logger.info { "Reporting ${clientContext.clientId} disconnection info to $mapSize clients: $mapKeys" }
                     mapValues.forEach { it ->
                         it.sendClientInfoMessage(
                             clientInfo(
@@ -134,43 +133,37 @@ class CanvasServer(val port: Int) {
             // TODO This needs some synchronization
             // Lookup client context, which was added in CanvasServerTransportFilter
             getClientContext(request.clientId).also { clientContext ->
-                //logger.info { "Registering client: $clientContext" }
-
                 // Notify all the existing clients about the new client
-                //logger.info { "Reporting ${request.clientId} connection info to $mapSize clients: $mapKeys" }
                 mapValues.forEach { it.sendClientInfoMessage(request) }
-
                 clientContext.assignClientInfo(request)
             }
             return Empty.getDefaultInstance()
         }
 
-        override fun listenForChanges(request: Empty): Flow<ClientInfoMsg> {
-            return flow {
+        override fun listenForChanges(request: Empty) =
+            flow {
                 // Catch up with the already existing clients
-                mapValues.forEach { it ->
+                mapValues.forEach { clientContext ->
                     emit(clientInfo(
-                        it.clientId,
-                        it.ballCount,
-                        it.even,
-                        it.odd
+                        clientContext.clientId,
+                        clientContext.ballCount,
+                        clientContext.even,
+                        clientContext.odd
                     ) {
-                        x = it.position.first
-                        y = it.position.second
+                        x = clientContext.position.first
+                        y = clientContext.position.second
                     })
                 }
 
                 while (true)
                     select<Unit> {
-                        mapValues.forEach { cc ->
-                            cc.clientInfoChannel.onReceive { msg ->
-                                //logger.info{"Sending client info for ${msg.clientId} to: $cc"}
+                        mapValues.forEach { clientContext ->
+                            clientContext.clientInfoChannel.onReceive { msg ->
                                 emit(msg)
                             }
                         }
                     }
             }
-        }
 
         override suspend fun writePositions(requests: Flow<PositionMsg>) =
             requests.collect { msg ->
@@ -182,12 +175,8 @@ class CanvasServer(val port: Int) {
 
         override fun readPositions(request: ClientInfoMsg) =
             flow {
-                getClientContext(request.clientId).also { clientContext ->
-                    for (elem in clientContext.positionChannel) {
-                        //clientContext.position = elem.x to elem.y
-                        emit(elem)
-                    }
-                }
+                for (elem in getClientContext(request.clientId).positionChannel)
+                    emit(elem)
             }
 
         companion object : KLogging()

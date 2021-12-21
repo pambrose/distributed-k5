@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 
 class CanvasService internal constructor(canvas: MultiCanvas, val channel: ManagedChannel) : Closeable {
 
-    constructor(canvas: MultiCanvas, host: String, port: Int = 50051) :
+    constructor(canvas: MultiCanvas, host: String = "localhost", port: Int = 50051) :
             this(canvas, ManagedChannelBuilder.forAddress(host, port).usePlaintext().build())
 
     val interceptors = listOf(CanvasClientInterceptor(canvas))

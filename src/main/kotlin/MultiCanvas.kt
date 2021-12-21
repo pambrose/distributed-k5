@@ -1,8 +1,8 @@
 import BaseCanvas.drawBalls
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerMoveFilter
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
 import kotlinx.coroutines.delay
@@ -11,21 +11,17 @@ import math.Vector2D
 import mu.KLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors.newSingleThreadExecutor
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
-class MultiCanvas {
+class MultiCanvas(hostName: String = "localhost", port: Int = 50051) {
     // clientId is set in CanvasClientInterceptor
     val clientIdRef = AtomicReference(UNASSIGNED_CLIENT_ID)
     val clientContextMap = ConcurrentHashMap<String, ClientContext>()
     val positionChannel = Channel<Vector2D>(CONFLATED)
-    val grpcService = CanvasService(this, "localhost")
+    val grpcService = CanvasService(this, hostName, port)
     val clientId get() = clientIdRef.get()
-    val mouseOn = AtomicBoolean(true)
-
-    val isMouseOn get() = mouseOn.get()
 
     companion object : KLogging() {
         const val UNASSIGNED_CLIENT_ID = "unassigned"
@@ -33,11 +29,12 @@ class MultiCanvas {
         @JvmStatic
         fun main(argv: Array<String>) =
             k5(size = BaseCanvas.size) {
-                val canvas = MultiCanvas()
+                val canvas = MultiCanvas("localhost", 50051)
 
-                // Call connect synchronously in order to propagate a clientId back to the client
-                runBlocking { canvas.grpcService.connect() }
                 runBlocking {
+                    // Call connect to propagate a clientId back to the client
+                    canvas.grpcService.connect()
+
                     canvas.grpcService.register(
                         canvas.clientId,
                         Random.nextInt(90) + 10,
@@ -82,20 +79,15 @@ class MultiCanvas {
                 }
 
                 show(
-                    Modifier.combinedClickable(
-
-                        onClick = {
-                            canvas.mouseOn.set(canvas.isMouseOn.not())
-                        }
-                    ).then(
-                        Modifier.pointerMoveFilter(
-                            onMove = { point ->
-                                if (canvas.isMouseOn)
-                                    runBlocking { canvas.positionChannel.send(Vector2D(point.x, point.y)) }
-                                false
+                    Modifier.pointerInput(Unit) {
+                        detectDragGestures(
+                            onDrag = { change, point ->
+                                runBlocking {
+                                    canvas.positionChannel.send(Vector2D(change.position.x, change.position.y))
+                                }
                             }
                         )
-                    )) { drawScope ->
+                    }) { drawScope ->
                     canvas.clientContextMap.values.forEach { drawScope.drawBalls(it.balls, it.position) }
                 }
             }
