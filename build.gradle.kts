@@ -13,7 +13,7 @@ plugins {
     kotlin("jvm") version "1.5.31"
     id("com.google.protobuf") version "0.8.18"
     id("com.github.ben-manes.versions") version "0.39.0"
-    id("org.jetbrains.compose") version "1.1.0-alpha1-dev527" // "1.0.0-alpha3" // 1.1.0-alpha1-dev527
+    id("org.jetbrains.compose") version "1.0.0" // "1.0.0-alpha3" // 1.1.0-alpha1-dev527
 }
 
 group = "com.github.pambrose"
@@ -41,7 +41,7 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation(compose.desktop.currentOs)
 
-    implementation("com.github.pambrose:k5-compose:d4decc8")
+    implementation("com.github.pambrose:k5-compose:8f36e55")
 
 //    implementation("io.grpc:grpc-all:$grpcVersion")
 //    api("io.grpc:grpc-kotlin-stub:0.2.1")

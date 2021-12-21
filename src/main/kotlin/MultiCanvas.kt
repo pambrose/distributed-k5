@@ -83,6 +83,7 @@ class MultiCanvas {
 
                 show(
                     Modifier.combinedClickable(
+
                         onClick = {
                             canvas.mouseOn.set(canvas.isMouseOn.not())
                         }
