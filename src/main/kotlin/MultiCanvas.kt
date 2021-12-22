@@ -83,7 +83,12 @@ class MultiCanvas(hostName: String = "localhost", port: Int = 50051) {
                         detectDragGestures(
                             onDrag = { change, point ->
                                 runBlocking {
-                                    canvas.positionChannel.send(Vector2D(change.position.x, change.position.y))
+                                    canvas.positionChannel.send(
+                                        Vector2D(
+                                            change.position.x.bound(0.0f, BaseCanvas.size.width - 15f),
+                                            change.position.y.bound(0.0f, BaseCanvas.size.height - 60f)
+                                        )
+                                    )
                                 }
                             }
                         )

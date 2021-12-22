@@ -74,3 +74,5 @@ val Color.Companion.Random get() = Color((0..255).random(), (0..255).random(), (
 fun String.toColor() = Color(this.toULong())
 
 infix fun Int.by(other: Int) = Size(this.toFloat(), other.toFloat())
+
+fun Float.bound(min: Float, max: Float) = Math.max(min, Math.min(max, this))
