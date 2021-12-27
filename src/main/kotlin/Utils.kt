@@ -66,7 +66,7 @@ fun attributes(block: Attributes.Builder.() -> Unit): Attributes =
     Attributes.newBuilder()
         .run {
             block(this)
-            build()
+          build()
         }
 
 val Color.Companion.Random get() = Color((0..255).random(), (0..255).random(), (0..255).random())
@@ -76,3 +76,8 @@ fun String.toColor() = Color(this.toULong())
 infix fun Int.by(other: Int) = Size(this.toFloat(), other.toFloat())
 
 fun Float.bound(min: Float, max: Float) = Math.max(min, Math.min(max, this))
+
+interface Connectable {
+  fun onClientConnect(attributes: Attributes): Attributes
+  fun onClientDisconnect(attributes: Attributes)
+}

@@ -1,5 +1,4 @@
-import CanvasServerTransportFilter.Companion.CLIENT_ID
-import CanvasServerTransportFilter.Companion.CLIENT_ID_KEY
+import io.grpc.Attributes
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.Metadata
 import io.grpc.Metadata.ASCII_STRING_MARSHALLER
@@ -8,7 +7,7 @@ import io.grpc.ServerCallHandler
 import io.grpc.ServerInterceptor
 import mu.KLogging
 
-class CanvasServerInterceptor : ServerInterceptor {
+class CanvasServerInterceptor(val clientIdName: String, val clientIdKey: Attributes.Key<String>) : ServerInterceptor {
     override fun <ReqT, RespT> interceptCall(
         call: ServerCall<ReqT, RespT>,
         requestHeaders: Metadata,
@@ -16,11 +15,13 @@ class CanvasServerInterceptor : ServerInterceptor {
     ) =
         handler.startCall(
             object : SimpleForwardingServerCall<ReqT, RespT>(call) {
+                val metaClientIdKey = Metadata.Key.of(clientIdName, ASCII_STRING_MARSHALLER)
+
                 override fun sendHeaders(headers: Metadata) {
                     try {
                         // CLIENT_ID was assigned in CanvasServerTransportFilter
-                        call.attributes.get(CLIENT_ID_KEY)?.also { clientId ->
-                            headers.put(META_CLIENT_ID_KEY, clientId)
+                        call.attributes.get(clientIdKey)?.also { clientId ->
+                            headers.put(metaClientIdKey, clientId)
                         } ?: logger.warn { "No client id found in call attributes" }
                     } catch (e: Exception) {
                         logger.error(e) { "Error setting client id" }
@@ -31,7 +32,5 @@ class CanvasServerInterceptor : ServerInterceptor {
             requestHeaders
         )
 
-    companion object : KLogging() {
-        internal val META_CLIENT_ID_KEY = Metadata.Key.of(CLIENT_ID, ASCII_STRING_MARSHALLER)
-    }
+    companion object : KLogging()
 }

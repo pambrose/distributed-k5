@@ -2,6 +2,7 @@ import com.github.pambrose.CanvasServiceGrpcKt
 import com.github.pambrose.ClientInfoMsg
 import com.github.pambrose.PositionMsg
 import com.google.protobuf.Empty
+import io.grpc.Attributes
 import io.grpc.Server
 import io.grpc.ServerBuilder
 import io.grpc.ServerInterceptor
@@ -24,7 +25,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class CanvasServer(val port: Int) {
     val canvasService = CanvasServiceImpl()
-    val interceptors = mutableListOf<ServerInterceptor>(CanvasServerInterceptor())
+    val interceptors = mutableListOf<ServerInterceptor>(CanvasServerInterceptor(CLIENT_ID, CLIENT_ID_KEY))
     val grpcServer: Server =
         ServerBuilder
             .forPort(port)
@@ -47,6 +48,11 @@ class CanvasServer(val port: Int) {
     }
 
     companion object : KLogging() {
+        internal val CLIENT_ID = "client-id"
+        private const val REMOTE_ADDR = "remote-addr"
+        private val CLIENT_ID_KEY: Attributes.Key<String> = Attributes.Key.create(CLIENT_ID)
+        private val REMOTE_ADDR_KEY: Attributes.Key<String> = Attributes.Key.create(REMOTE_ADDR)
+
         @JvmStatic
         fun main(argv: Array<String>) {
             val port = System.getenv("PORT")?.toInt() ?: 50051
@@ -90,7 +96,7 @@ class CanvasServer(val port: Int) {
         override fun toString() = "ClientContext(clientId='$clientId')"
     }
 
-    class CanvasServiceImpl : CanvasServiceGrpcKt.CanvasServiceCoroutineImplBase() {
+    class CanvasServiceImpl : Connectable, CanvasServiceGrpcKt.CanvasServiceCoroutineImplBase() {
         val clientContextMap = ConcurrentHashMap<String, ClientContext>()
 
         val mapKeys get() = clientContextMap.keys
@@ -107,24 +113,42 @@ class CanvasServer(val port: Int) {
             clientContextMap[clientId] = clientContext
         }
 
-        fun onClientDisconnect(clientContext: ClientContext) {
-            newSingleThreadExecutor().execute {
-                runBlocking {
-                    // This delay allows the disconnect process that reported this to finish
-                    delay(250.milliseconds)
-                    mapValues.forEach { it ->
-                        it.sendClientInfoMessage(
-                            clientInfo(
-                                clientContext.clientId,
-                                clientContext.ballCount,
-                                clientContext.even,
-                                clientContext.odd
-                            ) {
-                                active = false
-                            })
-                    }
-                }
+        override fun onClientConnect(attributes: Attributes): Attributes {
+            val remoteAddress = attributes.get(REMOTE_ADDR_KEY)?.toString() ?: "Unknown"
+            val clientContext = ClientContext(remoteAddress)
+            assignClientContext(clientContext.clientId, clientContext)
+            logger.info { "Connected to $clientContext" }
+            return attributes {
+                set(CLIENT_ID_KEY, clientContext.clientId)
+                setAll(attributes)
             }
+        }
+
+        override fun onClientDisconnect(attributes: Attributes) {
+            attributes.get(CLIENT_ID_KEY)?.also { clientId ->
+                val clientContext = clientContextMap.remove(clientId)
+                if (clientContext == null)
+                    logger.error { "Missing clientId $clientId in transportTerminated()" }
+                else
+                    newSingleThreadExecutor().execute {
+                        runBlocking {
+                            // This delay allows the disconnect process that reported this to finish
+                            delay(250.milliseconds)
+                            mapValues.forEach { it ->
+                                it.sendClientInfoMessage(
+                                    clientInfo(
+                                        clientContext.clientId,
+                                        clientContext.ballCount,
+                                        clientContext.even,
+                                        clientContext.odd
+                                    ) {
+                                        active = false
+                                    })
+                            }
+                        }
+                    }
+                logger.info { "Disconnected ${if (clientContext != null) "from $clientContext" else "with invalid clientId: $clientId"}" }
+            } ?: logger.error { "Missing $CLIENT_ID_KEY in transportTerminated()" }
         }
 
         override suspend fun connect(request: Empty) = Empty.getDefaultInstance()
@@ -178,7 +202,5 @@ class CanvasServer(val port: Int) {
                 for (elem in getClientContext(request.clientId).positionChannel)
                     emit(elem)
             }
-
-        companion object : KLogging()
     }
 }
