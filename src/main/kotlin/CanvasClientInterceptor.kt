@@ -1,4 +1,4 @@
-import MultiCanvas.Companion.UNASSIGNED_CLIENT_ID
+import SharedCanvas.Companion.UNASSIGNED_CLIENT_ID
 import io.grpc.CallOptions
 import io.grpc.Channel
 import io.grpc.ClientCall
@@ -10,7 +10,7 @@ import io.grpc.Metadata.ASCII_STRING_MARSHALLER
 import io.grpc.MethodDescriptor
 import mu.KLogging
 
-class CanvasClientInterceptor(val clientIdName: String, val canvas: MultiCanvas) : ClientInterceptor {
+class CanvasClientInterceptor(val clientIdName: String, val canvas: SharedCanvas) : ClientInterceptor {
 
     override fun <ReqT, RespT> interceptCall(
         method: MethodDescriptor<ReqT, RespT>,

@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
-class MultiCanvas(hostName: String = "localhost", port: Int = 50051) {
+class SharedCanvas(hostName: String = "localhost", port: Int = 50051) {
   // clientId is set in CanvasClientInterceptor
   val clientIdRef = AtomicReference(UNASSIGNED_CLIENT_ID)
   val clientContextMap = ConcurrentHashMap<String, ClientContext>()
@@ -29,7 +29,7 @@ class MultiCanvas(hostName: String = "localhost", port: Int = 50051) {
     @JvmStatic
     fun main(argv: Array<String>) =
       k5(size = BaseCanvas.size) {
-        val canvas = MultiCanvas("localhost", 50051)
+        val canvas = SharedCanvas("localhost", 50051)
 
         runBlocking {
           // Call connect to propagate a clientId back to the client
@@ -53,7 +53,6 @@ class MultiCanvas(hostName: String = "localhost", port: Int = 50051) {
                 else
                   canvas.clientContextMap.remove(msg.clientId)
               }
-
           }
 
           launch {

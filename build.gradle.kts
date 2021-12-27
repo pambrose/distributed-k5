@@ -83,7 +83,7 @@ tasks.withType<KotlinCompile>().configureEach {
 
 compose.desktop {
     application {
-        mainClass = "MultiCanvas"
+        mainClass = "SharedCanvas"
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = ""

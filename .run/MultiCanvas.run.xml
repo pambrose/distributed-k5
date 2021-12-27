@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-    <configuration default="false" name="MultiCanvas" type="JetRunConfigurationType" singleton="false"
+    <configuration default="false" name="SharedCanvas" type="JetRunConfigurationType" singleton="false"
                    nameIsGenerated="true">
-        <option name="MAIN_CLASS_NAME" value="MultiCanvas"/>
+        <option name="MAIN_CLASS_NAME" value="SharedCanvas"/>
         <module name="distributed-k5.main"/>
         <shortenClasspath name="NONE"/>
         <method v="2">

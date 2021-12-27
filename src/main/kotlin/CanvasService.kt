@@ -12,9 +12,9 @@ import math.Vector2D
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
 
-class CanvasService internal constructor(canvas: MultiCanvas, val channel: ManagedChannel) : Closeable {
+class CanvasService internal constructor(canvas: SharedCanvas, val channel: ManagedChannel) : Closeable {
 
-  constructor(canvas: MultiCanvas, host: String = "localhost", port: Int = 50051) :
+  constructor(canvas: SharedCanvas, host: String = "localhost", port: Int = 50051) :
       this(canvas, ManagedChannelBuilder.forAddress(host, port).usePlaintext().build())
 
   private val interceptors = listOf(CanvasClientInterceptor(CLIENT_ID, canvas))
