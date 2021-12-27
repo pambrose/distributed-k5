@@ -12,7 +12,7 @@ class CanvasServerInterceptor(val clientIdName: String, val clientIdKey: Attribu
         call: ServerCall<ReqT, RespT>,
         requestHeaders: Metadata,
         handler: ServerCallHandler<ReqT, RespT>
-    ) =
+    ): ServerCall.Listener<ReqT> =
         handler.startCall(
             object : SimpleForwardingServerCall<ReqT, RespT>(call) {
                 val metaClientIdKey = Metadata.Key.of(clientIdName, ASCII_STRING_MARSHALLER)

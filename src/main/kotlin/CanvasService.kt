@@ -6,7 +6,6 @@ import io.grpc.ClientInterceptors
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.flow
 import math.Vector2D
 import java.io.Closeable
@@ -22,33 +21,21 @@ class CanvasService internal constructor(canvas: SharedCanvas, val channel: Mana
   private val stub = CanvasServiceGrpcKt.CanvasServiceCoroutineStub(intercept)
 
   suspend fun connect() =
-    coroutineScope {
-      stub.connect(Empty.getDefaultInstance())
-    }
+    stub.connect(Empty.getDefaultInstance())
 
   suspend fun register(clientId: String, ballCount: Int, even: Color, odd: Color) =
-    coroutineScope {
-      stub.register(clientInfo(clientId, ballCount, even, odd))
-    }
+    stub.register(clientInfo(clientId, ballCount, even, odd))
 
-  suspend fun listenForChanges() =
-    coroutineScope {
-      stub.listenForChanges(Empty.getDefaultInstance())
-    }
+  fun listenForChanges() = stub.listenForChanges(Empty.getDefaultInstance())
 
   suspend fun writePositions(clientId: String, positionChannel: Channel<Vector2D>) =
-    coroutineScope {
-      stub.writePositions(
-        flow {
-          for (position in positionChannel)
-            emit(mousePosition(clientId, position.x, position.y))
-        })
-    }
+    stub.writePositions(
+      flow {
+        for (position in positionChannel)
+          emit(mousePosition(clientId, position.x, position.y))
+      })
 
-  suspend fun readPositions(clientId: String) =
-    coroutineScope {
-      stub.readPositions(clientInfo(clientId))
-    }
+  fun readPositions(clientId: String) = stub.readPositions(clientInfo(clientId))
 
   override fun close() {
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS)

@@ -21,6 +21,7 @@ import mu.KLogging
 import java.io.Closeable
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors.newCachedThreadPool
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
@@ -50,7 +51,7 @@ class CanvasServer(val port: Int) {
   }
 
   companion object : KLogging() {
-    internal val CLIENT_ID = "client-id"
+    internal const val CLIENT_ID = "client-id"
     private const val REMOTE_ADDR = "remote-addr"
     private val CLIENT_ID_KEY: Attributes.Key<String> = Attributes.Key.create(CLIENT_ID)
     private val REMOTE_ADDR_KEY: Attributes.Key<String> = Attributes.Key.create(REMOTE_ADDR)
@@ -73,7 +74,7 @@ class CanvasServer(val port: Int) {
     val clientInfoRef = AtomicReference<ClientInfoMsg>()
     var position = 0.toDouble() to 0.toDouble()
 
-    val clientInfo get() = clientInfoRef.get()
+    val clientInfo: ClientInfoMsg get() = clientInfoRef.get()
     val ballCount get() = clientInfo.ballCount
     val even get() = clientInfo.even.toColor()
     val odd get() = clientInfo.odd.toColor()
@@ -96,7 +97,7 @@ class CanvasServer(val port: Int) {
 
   class CanvasServiceImpl : Connectable, CanvasServiceGrpcKt.CanvasServiceCoroutineImplBase() {
     val clientContextMap = ConcurrentHashMap<String, ClientContext>()
-    val disconnectPool = newCachedThreadPool()
+    val disconnectPool: ExecutorService = newCachedThreadPool()
     val mutex = Mutex()
 
     val clientContextValues get() = clientContextMap.values
@@ -133,7 +134,7 @@ class CanvasServer(val port: Int) {
             runBlocking {
               // This delay allows the disconnect process that reported this to finish
               delay(250.milliseconds)
-              clientContextValues.forEach { it ->
+              clientContextValues.forEach {
                 it.sendClientInfoMessage(
                   clientInfo(
                     clientContext.clientId,
@@ -150,7 +151,7 @@ class CanvasServer(val port: Int) {
       } ?: logger.error { "Missing $CLIENT_ID_KEY in transportTerminated()" }
     }
 
-    override suspend fun connect(request: Empty) = Empty.getDefaultInstance()
+    override suspend fun connect(request: Empty): Empty = Empty.getDefaultInstance()
 
     override suspend fun register(request: ClientInfoMsg): Empty {
       mutex.withLock {
@@ -173,7 +174,8 @@ class CanvasServer(val port: Int) {
             clientContext.clientId,
             clientContext.ballCount,
             clientContext.even,
-            clientContext.odd
+            clientContext.odd,
+            firstTime = true,
           ) {
             x = clientContext.position.first
             y = clientContext.position.second
@@ -190,7 +192,7 @@ class CanvasServer(val port: Int) {
           }
       }
 
-    override suspend fun writePositions(requests: Flow<PositionMsg>) =
+    override suspend fun writePositions(requests: Flow<PositionMsg>): Empty =
       requests.collect { msg ->
         getClientContext(msg.clientId).position = msg.x to msg.y
         clientContextValues.forEach {

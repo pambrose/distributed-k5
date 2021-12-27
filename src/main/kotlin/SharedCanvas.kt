@@ -19,9 +19,9 @@ class SharedCanvas(hostName: String = "localhost", port: Int = 50051) {
   // clientId is set in CanvasClientInterceptor
   val clientIdRef = AtomicReference(UNASSIGNED_CLIENT_ID)
   val clientContextMap = ConcurrentHashMap<String, ClientContext>()
-  val positionChannel = Channel<Vector2D>(CONFLATED)
+  val positionChannel: Channel<Vector2D> = Channel(CONFLATED)
   val grpcService = CanvasService(this, hostName, port)
-  val clientId get() = clientIdRef.get()
+  val clientId: String get() = clientIdRef.get()
 
   companion object : KLogging() {
     const val UNASSIGNED_CLIENT_ID = "unassigned"
@@ -29,16 +29,14 @@ class SharedCanvas(hostName: String = "localhost", port: Int = 50051) {
     @JvmStatic
     fun main(argv: Array<String>) =
       k5(size = BaseCanvas.size) {
-        val canvas = SharedCanvas("localhost", 50051)
-
         runBlocking {
+          val canvas = SharedCanvas("localhost", 50051)
+
           // Call connect to propagate a clientId back to the client
           canvas.grpcService.connect()
 
           canvas.grpcService.register(canvas.clientId, Random.nextInt(90) + 10, Color.Random, Color.Random)
-        }
 
-        runBlocking {
           launch {
             canvas.grpcService.listenForChanges()
               .collect { msg ->
@@ -46,8 +44,9 @@ class SharedCanvas(hostName: String = "localhost", port: Int = 50051) {
                   ClientContext(msg)
                     .also { clientContext ->
                       canvas.clientContextMap[msg.clientId] = clientContext
-                      // Give it a moment to establish it at the origin
-                      delay(250.milliseconds)
+                      // Give it a moment to establish it at the origin if it is the first time
+                      if (msg.firstTime)
+                        delay(250.milliseconds)
                       clientContext.updatePosition(msg.x, msg.y)
                     }
                 else
@@ -68,24 +67,22 @@ class SharedCanvas(hostName: String = "localhost", port: Int = 50051) {
               }
           }
 
-          launch {
-            show(
-              Modifier.pointerInput(Unit) {
-                detectDragGestures(
-                  onDrag = { change, point ->
-                    runBlocking {
-                      canvas.positionChannel.send(
-                        Vector2D(
-                          change.position.x.bound(0.0f, BaseCanvas.size.width - 15f),
-                          change.position.y.bound(0.0f, BaseCanvas.size.height - 60f)
-                        )
+          show(
+            Modifier.pointerInput(Unit) {
+              detectDragGestures(
+                onDrag = { change, point ->
+                  runBlocking {
+                    canvas.positionChannel.send(
+                      Vector2D(
+                        change.position.x.bound(0.0f, BaseCanvas.size.width - 15f),
+                        change.position.y.bound(0.0f, BaseCanvas.size.height - 60f)
                       )
-                    }
+                    )
                   }
-                )
-              }) { drawScope ->
-              canvas.clientContextMap.values.forEach { drawScope.drawBalls(it.balls, it.position) }
-            }
+                }
+              )
+            }) { drawScope ->
+            canvas.clientContextMap.values.forEach { drawScope.drawBalls(it.balls, it.position) }
           }
         }
       }

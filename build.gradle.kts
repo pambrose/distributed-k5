@@ -116,6 +116,14 @@ protobuf {
     }
 }
 
+tasks {
+    withType<Copy> {
+        filesMatching("**/*.proto") {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+    }
+}
+
 idea {
     module {
         sourceDirs.add(file("${projectDir}/build/generated/source/proto/main/java"))

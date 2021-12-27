@@ -1,3 +1,4 @@
+import BaseCanvas.Ball
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import com.github.pambrose.ClientInfoMsg
@@ -5,6 +6,8 @@ import com.github.pambrose.PositionMsg
 import io.grpc.Attributes
 import math.Vector2D
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 
@@ -25,10 +28,10 @@ class PeriodicAction(val threshold: Duration) {
 class ClientContext constructor(val clientId: String, ballCount: Int, even: Color, odd: Color) {
     constructor(msg: ClientInfoMsg) : this(msg.clientId, msg.ballCount, msg.even.toColor(), msg.odd.toColor())
 
-    val balls = List(ballCount) { i -> BaseCanvas.Ball(i, if (i % 2 == 0) even else odd) }
-    val positionRef = AtomicReference(Vector2D(0f, 0f))
+    val balls: List<Ball> = List(ballCount) { i -> Ball(i, if (i % 2 == 0) even else odd) }
+    val positionRef: AtomicReference<Vector2D> = AtomicReference(Vector2D(0f, 0f))
 
-    val position get() = positionRef.get()
+    val position: Vector2D get() = positionRef.get()
 
     fun updatePosition(x: Double, y: Double) {
         positionRef.set(Vector2D(x.toFloat(), y.toFloat()))
@@ -42,10 +45,12 @@ fun clientInfo(
     ballCount: Int = -1,
     even: Color? = null,
     odd: Color? = null,
+    firstTime: Boolean = false,
     block: ClientInfoMsg.Builder.() -> Unit = {}
 ): ClientInfoMsg =
     ClientInfoMsg.newBuilder().run {
         this.active = true
+        this.firstTime = firstTime
         this.clientId = clientId
         this.ballCount = ballCount
         this.even = even?.value?.toString() ?: "unassigned"
@@ -66,7 +71,7 @@ fun attributes(block: Attributes.Builder.() -> Unit): Attributes =
     Attributes.newBuilder()
         .run {
             block(this)
-          build()
+            build()
         }
 
 val Color.Companion.Random get() = Color((0..255).random(), (0..255).random(), (0..255).random())
@@ -75,9 +80,9 @@ fun String.toColor() = Color(this.toULong())
 
 infix fun Int.by(other: Int) = Size(this.toFloat(), other.toFloat())
 
-fun Float.bound(min: Float, max: Float) = Math.max(min, Math.min(max, this))
+fun Float.bound(min: Float, max: Float) = max(min, min(max, this))
 
 interface Connectable {
-  fun onClientConnect(attributes: Attributes): Attributes
-  fun onClientDisconnect(attributes: Attributes)
+    fun onClientConnect(attributes: Attributes): Attributes
+    fun onClientDisconnect(attributes: Attributes)
 }
