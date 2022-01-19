@@ -10,10 +10,10 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     java
     idea
-    kotlin("jvm") version "1.5.31" // "1.6.10"
+    kotlin("jvm") version "1.6.10"
     id("com.google.protobuf") version "0.8.18"
-    id("com.github.ben-manes.versions") version "0.39.0"
-    id("org.jetbrains.compose") version "1.0.0" // ""1.0.1"  // "1.1.0-alpha1-dev545" // "1.0.0"
+    id("com.github.ben-manes.versions") version "0.41.0"
+    id("org.jetbrains.compose") version "1.1.0-alpha1-dev559"
 }
 
 group = "com.github.pambrose"
@@ -21,8 +21,8 @@ version = "1.0-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_11
 
 repositories {
-    mavenLocal()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    // https://maven.pkg.jetbrains.space/public/p/compose/dev/org/jetbrains/compose/desktop/desktop-jvm-macos-arm64/
     google()
     mavenCentral()
     maven("https://jitpack.io")
@@ -40,7 +40,7 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation(compose.desktop.currentOs)
 
-    implementation("com.github.pambrose:k5-compose:8f36e55")
+    implementation("com.github.pambrose:k5-compose:3a53dd9")
 
     implementation("io.grpc:grpc-netty:$grpcVersion")
     implementation("io.grpc:grpc-protobuf:$grpcVersion")
